@@ -1,3 +1,4 @@
+import './content-script.css';
 import {
   detectPageType,
   extractContext,
