@@ -146,3 +146,31 @@ After implementing the backend fix (and any optional frontend hardening):
 - (Optional) Add a minimal backend test that exercises `analyze_streaming` and `EventSourceResponse` together, asserting that at least one event with `event: layer1_chunk` and valid JSON `data:` is produced.
 
 This gives us a clear, concrete path for the implementation step: adjust the backend SSE generator to align with `EventSourceResponse`, and keep the frontend streaming hook as-is (with minor hardening if desired).
+
+## Implementation notes
+
+### Backend changes
+- Updated `backend/app/utils/streaming.py`:
+  - Removed manual SSE string formatting.
+  - `stream_sse_events` now:
+    - Accepts the orchestrator's `{"event": str, "data": Any}` dicts.
+    - Normalizes them into dicts of the form `{"event": <event>, "data": "<json string>"}`.
+    - Leaves the actual SSE framing (`event:` / `data:` lines) to `EventSourceResponse`.
+- This ensures the browser receives standard SSE frames like:
+  ```text
+  event: layer1_chunk
+  data: {"content": "..."}
+  ```
+  which the frontend's `parseSSEEvent` can correctly parse and pass to `handleEvent`, so the sidepanel layers update as expected.
+
+### Tests
+- Added `backend/tests/test_streaming.py` to cover the new behavior of `stream_sse_events`:
+  - Verifies that events emitted by `stream_sse_events` are dicts with:
+    - `event` preserved from the input.
+    - `data` as a JSON string that can be `json.loads`-ed back into the original payload.
+- Ran backend tests:
+  - Command: `cd backend && poetry run pytest -q`
+  - Result: all tests passing (`3 passed`).
+
+### Frontend
+- No changes were required in the frontend hook (`extension/src/sidepanel/hooks/useStreamingAnalysis.ts`); once the backend sends correctly framed SSE with JSON payloads, the existing parser and handlers update the UI as designed.
