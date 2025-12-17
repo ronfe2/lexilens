@@ -208,10 +208,14 @@ export function useStreamingAnalysis() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
         let buffer = '';
+        let doneReading = false;
 
-        while (true) {
+        while (!doneReading) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            doneReading = true;
+            break;
+          }
 
           buffer += decoder.decode(value, { stream: true });
 
@@ -268,4 +272,3 @@ export function useStreamingAnalysis() {
 
   return { startAnalysis, stop };
 }
-

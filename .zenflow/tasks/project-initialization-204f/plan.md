@@ -194,7 +194,8 @@ Add animations, pronunciation, and visual enhancements.
 
 ---
 
-### [ ] Step: Demo Preparation & Testing
+### [x] Step: Demo Preparation & Testing
+<!-- chat-id: f0a9b0aa-c0ab-4f12-8053-dbc29f6f250a -->
 
 Prepare demo environment and conduct end-to-end testing.
 

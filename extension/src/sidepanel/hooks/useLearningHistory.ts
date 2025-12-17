@@ -14,11 +14,19 @@ interface UseLearningHistoryResult {
 }
 
 export function useLearningHistory(): UseLearningHistoryResult {
-  const [history, setHistory] = useState<LearningHistoryEntry[]>([]);
+  // Seed with demo history immediately so the very first lookup
+  // in a fresh profile still benefits from personalization.
+  const [history, setHistory] = useState<LearningHistoryEntry[]>(() =>
+    DEMO_LEARNING_HISTORY.map((word) => ({
+      word,
+      context: '',
+      timestamp: Date.now(),
+    })),
+  );
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Seed demo history for hackathon wow-effect, then respect user data
+    // Prefer real stored history if it exists; otherwise persist the demo seed.
     chrome.storage?.local.get(STORAGE_KEYS.LEARNING_HISTORY, (result) => {
       const stored = result?.[STORAGE_KEYS.LEARNING_HISTORY] as
         | LearningHistoryEntry[]
@@ -66,4 +74,3 @@ export function useLearningHistory(): UseLearningHistoryResult {
     addEntry,
   };
 }
-
