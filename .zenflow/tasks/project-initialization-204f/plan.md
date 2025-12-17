@@ -109,7 +109,8 @@ Implement REST API endpoints with Server-Sent Events streaming.
 
 ---
 
-### [ ] Step: Chrome Extension Foundation
+### [x] Step: Chrome Extension Foundation
+<!-- chat-id: 65452e80-1712-47fc-99a2-911048c99305 -->
 
 Build basic Chrome extension structure with Manifest V3.
 
