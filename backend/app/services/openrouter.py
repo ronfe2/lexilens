@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -14,6 +15,50 @@ from app.utils.error_handling import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_json_from_text(text: str) -> str:
+    """
+    Extract a JSON object/array from an LLM response that may include
+    explanations or Markdown fences.
+
+    Priority:
+    1) First ```json ... ``` fenced block (most common pattern)
+    2) Fallback to substring from first '{'/'[' to last '}'/']'
+    3) If nothing obvious is found, return the original text.
+    """
+    if not text:
+        return text
+
+    # Try to find a fenced ```json block first
+    fence_match = re.search(
+        r"```(?:json)?\s*(.*?)```", text, flags=re.IGNORECASE | re.DOTALL
+    )
+    if fence_match:
+        return fence_match.group(1).strip()
+
+    stripped = text.strip()
+
+    # Fallback: look for first JSON-looking character
+    first_obj = stripped.find("{")
+    first_arr = stripped.find("[")
+
+    candidates = [i for i in (first_obj, first_arr) if i != -1]
+    if not candidates:
+        # No apparent JSON start; just return original
+        return stripped
+
+    start = min(candidates)
+    candidate = stripped[start:]
+
+    # Try to cut off trailing explanation after the JSON block
+    last_obj = candidate.rfind("}")
+    last_arr = candidate.rfind("]")
+    last = max(last_obj, last_arr)
+    if last != -1:
+        candidate = candidate[: last + 1]
+
+    return candidate.strip()
 
 
 class OpenRouterClient:
@@ -192,7 +237,7 @@ class OpenRouterClient:
         temperature: float = 0.7,
         max_tokens: int = 1000,
         **kwargs: Any
-    ) -> dict[str, Any]:
+    ) -> Any:
         response = await self.complete(
             prompt=prompt,
             system_prompt=system_prompt,
@@ -202,14 +247,8 @@ class OpenRouterClient:
         )
 
         try:
-            response_text = response.strip()
-            if response_text.startswith("```json"):
-                response_text = response_text[7:]
-            if response_text.endswith("```"):
-                response_text = response_text[:-3]
-            response_text = response_text.strip()
-
-            return json.loads(response_text)
+            json_text = _extract_json_from_text(response)
+            return json.loads(json_text)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {response}")
             raise OpenRouterError(f"Invalid JSON response: {str(e)}", detail=response)
