@@ -56,7 +56,8 @@ export interface LearningHistoryEntry {
 export type MessageType = 
   | 'WORD_SELECTED' 
   | 'OPEN_SIDEPANEL' 
-  | 'ANALYSIS_COMPLETE';
+  | 'ANALYSIS_COMPLETE'
+  | 'SIDE_PANEL_READY';
 
 export interface Message {
   type: MessageType;

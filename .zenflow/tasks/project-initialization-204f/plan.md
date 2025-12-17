@@ -130,7 +130,7 @@ Build basic Chrome extension structure with Manifest V3.
 
 ---
 
-### [ ] Step: Side Panel UI Components
+### [x] Step: Side Panel UI Components
 <!-- chat-id: a809cf03-4e99-4919-8694-94eaf6aed797 -->
 
 Build React components for 4-layer analysis interface.
@@ -152,7 +152,7 @@ Build React components for 4-layer analysis interface.
 
 ---
 
-### [ ] Step: Frontend-Backend Integration
+### [x] Step: Frontend-Backend Integration
 
 Connect side panel to backend API with streaming support.
 

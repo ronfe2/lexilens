@@ -1,20 +1,143 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import Header from '../components/Header';
+import BehaviorPattern from '../components/BehaviorPattern';
+import LiveContexts from '../components/LiveContexts';
+import CommonMistakes from '../components/CommonMistakes';
+import CognitiveScaffolding from '../components/CognitiveScaffolding';
+import EmptyState from '../components/EmptyState';
+import ErrorDisplay from '../components/ErrorDisplay';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { useAppStore } from '../store/appStore';
+import { useStreamingAnalysis } from './hooks/useStreamingAnalysis';
+import { useLearningHistory } from './hooks/useLearningHistory';
+import type { AnalysisRequest } from '../shared/types';
 
 function App() {
+  const { currentWord, analysisResult, isLoading, error, reset } = useAppStore();
+  const { startAnalysis } = useStreamingAnalysis();
+  const { words: learningWords, addEntry } = useLearningHistory();
+
+  const lastSelectionRef = useRef<AnalysisRequest | null>(null);
+
+  const handleSelection = useCallback(
+    (data: any) => {
+      if (!data?.word || !data?.context) return;
+
+      const request: AnalysisRequest = {
+        word: data.word,
+        context: data.context,
+        pageType: data.pageType,
+        learningHistory: learningWords,
+        url: data.url,
+      };
+
+      lastSelectionRef.current = request;
+
+      // Record into learning history for personalization
+      addEntry({
+        word: data.word,
+        context: data.context,
+        timestamp: Date.now(),
+      });
+
+      // Fire-and-forget streaming analysis
+      void startAnalysis(request);
+    },
+    [learningWords, addEntry, startAnalysis],
+  );
+
   useEffect(() => {
     console.log('LexiLens sidepanel loaded');
-  }, []);
+
+    // Ask background for the last selected word when side panel opens
+    chrome.runtime.sendMessage({ type: 'SIDE_PANEL_READY' }, (response) => {
+      if (chrome.runtime.lastError) {
+        // Side panel might open without background ready; fail silently
+        return;
+      }
+
+      if (response?.selection) {
+        handleSelection(response.selection);
+      }
+    });
+
+    // Listen for live selection events while side panel stays open
+    const listener = (message: any) => {
+      if (message?.type === 'WORD_SELECTED') {
+        handleSelection(message.data);
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(listener);
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(listener);
+    };
+  }, [handleSelection]);
+
+  const handleRetry = () => {
+    reset();
+    if (lastSelectionRef.current) {
+      void startAnalysis(lastSelectionRef.current);
+    }
+  };
+
+  const hasAnalysis =
+    !!analysisResult?.layer1 ||
+    !!analysisResult?.layer2 ||
+    !!analysisResult?.layer3 ||
+    !!analysisResult?.layer4;
+
+  if (!currentWord && !hasAnalysis && !isLoading && !error) {
+    return (
+      <div className="h-full w-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <EmptyState />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-4">
-            LexiLens
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Select a word to start learning
-          </p>
+      <div className="h-full w-full flex flex-col animate-fade-in">
+        <Header
+          word={analysisResult?.word || currentWord || ''}
+          pronunciation={analysisResult?.pronunciation}
+        />
+
+        <div className="flex-1 overflow-y-auto space-y-1 pb-4">
+          {error ? (
+            <ErrorDisplay message={error} onRetry={handleRetry} />
+          ) : (
+            <>
+              {analysisResult?.layer1 && (
+                <BehaviorPattern data={analysisResult.layer1} />
+              )}
+
+              {analysisResult?.layer2 && (
+                <LiveContexts contexts={analysisResult.layer2} />
+              )}
+
+              {analysisResult?.layer3 && (
+                <CommonMistakes mistakes={analysisResult.layer3} />
+              )}
+
+              {analysisResult?.layer4 && (
+                <CognitiveScaffolding data={analysisResult.layer4} />
+              )}
+
+              {isLoading && (
+                <div className="flex justify-center py-6">
+                  <LoadingSpinner
+                    text={
+                      analysisResult?.layer1
+                        ? 'Deepening the pattern, exploring more contexts...'
+                        : 'LexiLens is reading the sentence and summoning your coach...'
+                    }
+                  />
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
