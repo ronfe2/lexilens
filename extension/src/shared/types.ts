@@ -1,0 +1,64 @@
+export interface AnalysisRequest {
+  word: string;
+  context: string;
+  pageType?: 'news' | 'academic' | 'social' | 'email' | 'other';
+  learningHistory?: string[];
+  url?: string;
+}
+
+export interface BehaviorPattern {
+  definition: string;
+  generatedAt: number;
+}
+
+export interface LiveContext {
+  source: 'twitter' | 'news' | 'academic';
+  text: string;
+  highlightedWord: string;
+}
+
+export interface CommonMistake {
+  wrong: string;
+  why: string;
+  correct: string;
+}
+
+export interface RelatedWord {
+  word: string;
+  relationship: 'synonym' | 'antonym' | 'broader' | 'narrower';
+  keyDifference: string;
+  whenToUse: string;
+}
+
+export interface CognitiveScaffolding {
+  relatedWords: RelatedWord[];
+  personalizedTip?: string;
+}
+
+export interface AnalysisResult {
+  word: string;
+  pronunciation?: {
+    ipa: string;
+    audioUrl?: string;
+  };
+  layer1?: BehaviorPattern;
+  layer2?: LiveContext[];
+  layer3?: CommonMistake[];
+  layer4?: CognitiveScaffolding;
+}
+
+export interface LearningHistoryEntry {
+  word: string;
+  timestamp: number;
+  context: string;
+}
+
+export type MessageType = 
+  | 'WORD_SELECTED' 
+  | 'OPEN_SIDEPANEL' 
+  | 'ANALYSIS_COMPLETE';
+
+export interface Message {
+  type: MessageType;
+  data?: any;
+}

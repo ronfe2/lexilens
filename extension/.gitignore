@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-ssr/
+.pnpm-store/
+*.local
+*.zip
+.DS_Store
+.env
+.env.local
+.cache/
+.vite/

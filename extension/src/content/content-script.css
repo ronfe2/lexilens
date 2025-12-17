@@ -1,0 +1,9 @@
+.lexilens-highlight {
+  background-color: rgba(59, 130, 246, 0.2);
+  border-radius: 2px;
+  transition: background-color 0.2s ease;
+}
+
+.lexilens-highlight:hover {
+  background-color: rgba(59, 130, 246, 0.3);
+}
