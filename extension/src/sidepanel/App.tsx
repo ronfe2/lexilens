@@ -26,9 +26,20 @@ function App() {
     (data: any) => {
       if (!data?.word || !data?.context) return;
 
+      const normalizedWord = String(data.word).trim();
+      const normalizedContext = String(data.context).trim();
+
+      // Ignore duplicate selections with the same word and context to avoid
+      // hammering the backend (and the external pronunciation API) when some
+      // pages emit multiple selection events for a single user action.
+      const last = lastSelectionRef.current;
+      if (last && last.word === normalizedWord && last.context === normalizedContext) {
+        return;
+      }
+
       const request: AnalysisRequest = {
-        word: data.word,
-        context: data.context,
+        word: normalizedWord,
+        context: normalizedContext,
         pageType: data.pageType,
         learningHistory: learningWords,
         url: data.url,

@@ -1,4 +1,6 @@
 import logging
+import time
+from typing import Dict, Tuple
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -9,10 +11,26 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Simple in-memory cache to avoid hammering the external dictionary API.
+# This keeps pronunciation lookup "best-effort" and prevents rate limiting
+# from degrading the overall experience.
+CACHE_TTL_SECONDS = 60 * 60  # 1 hour
+_pronunciation_cache: Dict[str, Tuple[float, PronunciationResponse]] = {}
+
 
 @router.get("/pronunciation/{word}")
 async def get_pronunciation(word: str) -> PronunciationResponse:
     logger.info(f"Getting pronunciation for: '{word}'")
+
+    cache_key = word.lower()
+    now = time.time()
+
+    # Serve from cache when available and fresh
+    cached = _pronunciation_cache.get(cache_key)
+    if cached:
+        ts, cached_value = cached
+        if now - ts < CACHE_TTL_SECONDS:
+            return cached_value
 
     try:
         # Call external dictionary API with a short timeout. We intentionally keep this
@@ -66,11 +84,15 @@ async def get_pronunciation(word: str) -> PronunciationResponse:
             if not ipa:
                 ipa = entry.get("phonetic", "N/A")
 
-            return PronunciationResponse(
+            result = PronunciationResponse(
                 word=word,
                 ipa=ipa,
                 audio_url=audio_url
             )
+
+            # Store fresh result in cache
+            _pronunciation_cache[cache_key] = (now, result)
+            return result
 
     except HTTPException:
         # Re-raise FastAPI HTTP exceptions so they are not wrapped as 500s.
