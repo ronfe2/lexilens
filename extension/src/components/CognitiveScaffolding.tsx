@@ -4,6 +4,7 @@ import type { CognitiveScaffolding as CognitiveScaffoldingType } from '../shared
 
 interface CognitiveScaffoldingProps {
   data: CognitiveScaffoldingType;
+  word: string;
 }
 
 const relationshipConfig = {
@@ -13,7 +14,24 @@ const relationshipConfig = {
   narrower: { label: 'Narrower', color: 'text-green-600 dark:text-green-400' },
 };
 
-export default function CognitiveScaffolding({ data }: CognitiveScaffoldingProps) {
+export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldingProps) {
+  const baseWord = word || 'Word';
+
+  const size = 220;
+  const center = size / 2;
+  const positions = [
+    { x: center - 80, y: center - 40 },
+    { x: center + 80, y: center + 40 },
+    { x: center - 80, y: center + 40 },
+    { x: center + 80, y: center - 40 },
+  ];
+
+  const graphNodes = data.relatedWords.slice(0, positions.length).map((related, index) => ({
+    related,
+    x: positions[index].x,
+    y: positions[index].y,
+  }));
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
@@ -26,6 +44,70 @@ export default function CognitiveScaffolding({ data }: CognitiveScaffoldingProps
         <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
           Next Steps
         </h2>
+      </div>
+
+      <div className="mb-4">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+          Lexical Map
+        </p>
+        <div className="relative h-56 glass glass-border rounded-xl overflow-hidden">
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            viewBox={`0 0 ${size} ${size}`}
+          >
+            {graphNodes.map((node, index) => (
+              <line
+                key={`line-${index}`}
+                x1={center}
+                y1={center}
+                x2={node.x}
+                y2={node.y}
+                stroke="currentColor"
+                className="text-primary-200 dark:text-primary-800"
+                strokeWidth="1.5"
+                strokeDasharray="4 3"
+              />
+            ))}
+          </svg>
+
+          <div className="absolute inset-0 flex items-center justify-center">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              className="px-4 py-2 rounded-full bg-primary-500/90 text-white text-sm font-semibold shadow-lg"
+            >
+              {baseWord}
+            </motion.div>
+          </div>
+
+          {graphNodes.map((node, index) => {
+            const config = relationshipConfig[node.related.relationship];
+            return (
+              <motion.div
+                key={`node-${index}`}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2 + index * 0.05 }}
+                className="absolute"
+                style={{
+                  left: `${node.x}px`,
+                  top: `${node.y}px`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                <div className="px-3 py-2 rounded-full bg-white/80 dark:bg-gray-900/80 border border-white/40 dark:border-gray-700/40 shadow-sm backdrop-blur">
+                  <p className="text-xs font-semibold text-gray-900 dark:text-white">
+                    {node.related.word}
+                  </p>
+                  <p className={`text-[10px] ${config?.color ?? 'text-gray-500'} mt-0.5`}>
+                    {config?.label ?? node.related.relationship}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
 
       {data.personalizedTip && (

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
-import { Volume2, X } from 'lucide-react';
+import { Moon, Sun, Volume2, X } from 'lucide-react';
 import { useState } from 'react';
+import type { Theme } from '../sidepanel/hooks/useTheme';
 
 interface HeaderProps {
   word: string;
@@ -8,10 +9,18 @@ interface HeaderProps {
     ipa: string;
     audioUrl?: string;
   };
+  theme?: Theme;
+  onToggleTheme?: () => void;
   onClose?: () => void;
 }
 
-export default function Header({ word, pronunciation, onClose }: HeaderProps) {
+export default function Header({
+  word,
+  pronunciation,
+  theme = 'light',
+  onToggleTheme,
+  onClose,
+}: HeaderProps) {
   const [isPlaying, setIsPlaying] = useState(false);
 
   const playPronunciation = async () => {
@@ -30,7 +39,7 @@ export default function Header({ word, pronunciation, onClose }: HeaderProps) {
       animate={{ opacity: 1, y: 0 }}
       className="sticky top-0 z-10 glass glass-border border-b px-6 py-4"
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             {word}
@@ -53,15 +62,30 @@ export default function Header({ word, pronunciation, onClose }: HeaderProps) {
             </div>
           )}
         </div>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {onToggleTheme && (
+            <button
+              onClick={onToggleTheme}
+              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? (
+                <Sun className="h-4 w-4 text-yellow-400" />
+              ) : (
+                <Moon className="h-4 w-4 text-blue-500" />
+              )}
+            </button>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            </button>
+          )}
+        </div>
       </div>
     </motion.header>
   );

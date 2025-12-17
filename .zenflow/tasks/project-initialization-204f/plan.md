@@ -172,7 +172,8 @@ Connect side panel to backend API with streaming support.
 
 ---
 
-### [ ] Step: Enhanced Features & Polish
+### [x] Step: Enhanced Features & Polish
+<!-- chat-id: 7b28bd2d-cf9e-4975-b031-8693db2e9964 -->
 
 Add animations, pronunciation, and visual enhancements.
 

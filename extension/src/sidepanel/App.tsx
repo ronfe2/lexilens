@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import Header from '../components/Header';
 import BehaviorPattern from '../components/BehaviorPattern';
 import LiveContexts from '../components/LiveContexts';
@@ -10,12 +11,14 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { useAppStore } from '../store/appStore';
 import { useStreamingAnalysis } from './hooks/useStreamingAnalysis';
 import { useLearningHistory } from './hooks/useLearningHistory';
+import { useTheme } from './hooks/useTheme';
 import type { AnalysisRequest } from '../shared/types';
 
 function App() {
   const { currentWord, analysisResult, isLoading, error, reset } = useAppStore();
-  const { startAnalysis } = useStreamingAnalysis();
   const { words: learningWords, addEntry } = useLearningHistory();
+  const { startAnalysis } = useStreamingAnalysis();
+  const { theme, toggleTheme } = useTheme();
 
   const lastSelectionRef = useRef<AnalysisRequest | null>(null);
 
@@ -98,10 +101,17 @@ function App() {
 
   return (
     <div className="h-full w-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="h-full w-full flex flex-col animate-fade-in">
+      <motion.div
+        initial={{ opacity: 0, x: 24 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+        className="h-full w-full flex flex-col"
+      >
         <Header
           word={analysisResult?.word || currentWord || ''}
           pronunciation={analysisResult?.pronunciation}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
 
         <div className="flex-1 overflow-y-auto space-y-1 pb-4">
@@ -122,7 +132,10 @@ function App() {
               )}
 
               {analysisResult?.layer4 && (
-                <CognitiveScaffolding data={analysisResult.layer4} />
+                <CognitiveScaffolding
+                  data={analysisResult.layer4}
+                  word={analysisResult.word || currentWord || ''}
+                />
               )}
 
               {isLoading && (
@@ -139,7 +152,7 @@ function App() {
             </>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
