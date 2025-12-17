@@ -100,7 +100,6 @@ class OpenRouterClient:
             except httpx.RequestError as e:
                 raise APIConnectionError(f"Connection error: {str(e)}")
 
-    @async_retry(max_retries=3, initial_delay=1.0)
     async def stream(
         self,
         prompt: str,
@@ -132,7 +131,27 @@ class OpenRouterClient:
                     json=payload
                 ) as response:
                     if response.status_code != 200:
-                        await self._handle_error_response(response)
+                        error_text = await response.aread()
+                        try:
+                            error_data = json.loads(error_text)
+                            error_message = error_data.get("error", {}).get(
+                                "message", "Unknown error"
+                            )
+                        except Exception:
+                            if isinstance(error_text, bytes):
+                                error_message = error_text.decode()
+                            else:
+                                error_message = str(error_text)
+
+                        if response.status_code == 429:
+                            retry_after = int(response.headers.get("Retry-After", 60))
+                            raise RateLimitError(error_message, retry_after=retry_after)
+                        elif response.status_code >= 500:
+                            raise APIConnectionError(f"Server error: {error_message}")
+                        else:
+                            raise OpenRouterError(
+                                error_message, status_code=response.status_code
+                            )
 
                     full_content = ""
                     async for line in response.aiter_lines():

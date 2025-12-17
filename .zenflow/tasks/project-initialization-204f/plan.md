@@ -90,7 +90,8 @@ Build FastAPI backend with OpenRouter integration.
 
 ---
 
-### [ ] Step: Backend API Endpoints with SSE Streaming
+### [x] Step: Backend API Endpoints with SSE Streaming
+<!-- chat-id: 2e506159-9f6c-4f36-b035-818953e16b35 -->
 
 Implement REST API endpoints with Server-Sent Events streaming.
 
