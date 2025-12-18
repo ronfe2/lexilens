@@ -70,7 +70,7 @@ Location: `backend/app`
   - `PronunciationResponse` for IPA + audio URL.
 
 - **Streaming utilities (`utils/streaming.py`)**
-  - `stream_sse_events()` converts the orchestrator’s `{event, data}` dicts into correctly formatted `text/event-stream` lines.
+  - `stream_sse_events()` takes the orchestrator’s `{event, data}` dicts and normalizes them into plain dicts that `EventSourceResponse` can turn into proper SSE frames (one `event` + JSON `data` payload per message). The server is responsible for SSE framing; the helper ensures payloads are always JSON-serializable strings that the frontend can `JSON.parse`.
 
 - **API routes (`api/routes/analyze.py`, `api/routes/pronunciation.py`)**
   - `POST /api/analyze`
@@ -353,4 +353,3 @@ Judges can install directly by unzipping and loading the `dist` directory as an 
 - **For demo presenters**: Use `demo-script.md` alongside the personalized `strategy → tactic` flow and the lexical map to emphasize the "coach, not dictionary" narrative.
 
 LexiLens is now in a state where a **10-minute live demo** can convincingly show a new, AI-native vocabulary learning paradigm: one that lives *inside* the page and treats every word as an opportunity for real-time coaching rather than a one-off lookup.
-

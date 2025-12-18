@@ -33,10 +33,24 @@ function buildContextPayload(text: string) {
 }
 
 const sendSelection = debounce((payload: ReturnType<typeof buildContextPayload>) => {
-  chrome.runtime.sendMessage({
-    type: 'WORD_SELECTED',
-    data: payload,
-  });
+  try {
+    chrome.runtime.sendMessage(
+      {
+        type: 'WORD_SELECTED',
+        data: payload,
+      },
+      () => {
+        // If the extension context was really invalidated or any other
+        // transient error happens, surface it as a warning but don't break
+        // the host page.
+        if (chrome.runtime.lastError) {
+          console.warn('LexiLens: failed to send WORD_SELECTED', chrome.runtime.lastError);
+        }
+      },
+    );
+  } catch (err) {
+    console.warn('LexiLens: unexpected error sending WORD_SELECTED', err);
+  }
 }, 150);
 
 document.addEventListener('mouseup', () => {

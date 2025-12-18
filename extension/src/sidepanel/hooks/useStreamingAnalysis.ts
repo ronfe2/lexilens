@@ -34,13 +34,23 @@ function parseSSEEvent(rawEvent: string): SSEEvent | null {
   if (dataStr) {
     try {
       data = JSON.parse(dataStr);
-    } catch {
-      // Swallow JSON parse errors – invalid payloads are ignored
+    } catch (err) {
+      // Log parse failures in the sidepanel console so malformed payloads
+      // are visible during development, but don't break the UI.
+      // eslint-disable-next-line no-console
+      console.warn('[LexiLens] Failed to parse SSE data as JSON', err, dataStr);
       data = undefined;
     }
   }
 
-  return { event: eventName || 'message', data };
+  const parsed: SSEEvent = { event: eventName || 'message', data };
+
+  // Lightweight debug hook to help diagnose streaming issues in the sidepanel.
+  // This only logs in the extension devtools console, not on host pages.
+  // eslint-disable-next-line no-console
+  console.debug('[LexiLens] Parsed SSE event', parsed);
+
+  return parsed;
 }
 
 export function useStreamingAnalysis() {
@@ -84,6 +94,9 @@ export function useStreamingAnalysis() {
         const { event, data } = evt;
 
         if (!event) return;
+
+        // eslint-disable-next-line no-console
+        console.debug('[LexiLens] Handling SSE event', event, data);
 
         switch (event) {
           case 'layer1_chunk': {
@@ -163,6 +176,8 @@ export function useStreamingAnalysis() {
             break;
           }
           default:
+            // eslint-disable-next-line no-console
+            console.debug('[LexiLens] Ignoring unknown SSE event', event, data);
             break;
         }
       };
@@ -219,15 +234,23 @@ export function useStreamingAnalysis() {
 
           buffer += decoder.decode(value, { stream: true });
 
-          let boundary = buffer.indexOf('\n\n');
-          while (boundary !== -1) {
+          // SSE events are separated by a blank line. Depending on the server,
+          // lines may be terminated with '\n' or '\r\n', so we normalize by
+          // looking for the generic pattern "\r?\n\r?\n".
+          // This ensures compatibility with sse-starlette's default "\r\n".
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const match = buffer.match(/\r?\n\r?\n/);
+            if (!match || match.index === undefined) break;
+
+            const boundary = match.index;
             const rawEvent = buffer.slice(0, boundary);
-            buffer = buffer.slice(boundary + 2);
+            buffer = buffer.slice(boundary + match[0].length);
+
             const parsed = parseSSEEvent(rawEvent);
             if (parsed) {
               handleEvent(parsed);
             }
-            boundary = buffer.indexOf('\n\n');
           }
         }
 
