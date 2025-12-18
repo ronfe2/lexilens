@@ -6,7 +6,8 @@
   "permissions": [
     "activeTab",
     "sidePanel",
-    "storage"
+    "storage",
+    "contextMenus"
   ],
   "host_permissions": [
     "http://localhost:8000/*"

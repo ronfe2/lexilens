@@ -57,7 +57,8 @@ export type MessageType =
   | 'WORD_SELECTED' 
   | 'OPEN_SIDEPANEL' 
   | 'ANALYSIS_COMPLETE'
-  | 'SIDE_PANEL_READY';
+  | 'SIDE_PANEL_READY'
+  | 'LEXILENS_CONTEXT_MENU';
 
 export interface Message {
   type: MessageType;

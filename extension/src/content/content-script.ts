@@ -60,8 +60,9 @@ document.addEventListener('mouseup', () => {
   const selection = window.getSelection();
   const text = selection?.toString().trim();
 
-  // Short selections (word/phrase) trigger immediate coaching
-  if (text && text.length > 0 && text.length < 100) {
+  // When the side panel is open, any non-empty selection should trigger
+  // an explanation. The side panel itself decides whether to act on it.
+  if (text && text.length > 0) {
     sendSelection(buildContextPayload(text, 'selection'));
   }
 });
@@ -73,5 +74,18 @@ document.addEventListener('dblclick', () => {
   // Double-click is treated as strong intent, no length limit
   if (text && text.length > 0) {
     sendSelection(buildContextPayload(text, 'double-click'));
+  }
+});
+
+// Allow the background script (e.g. from a context menu click) to ask the
+// content script to send the current selection through the normal pipeline.
+chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
+  if (message?.type === 'LEXILENS_CONTEXT_MENU') {
+    const selection = window.getSelection();
+    const text = selection?.toString().trim();
+
+    if (text && text.length > 0) {
+      sendSelection(buildContextPayload(text, 'double-click'));
+    }
   }
 });

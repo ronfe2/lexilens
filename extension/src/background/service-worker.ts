@@ -55,6 +55,18 @@ chrome.runtime.onInstalled.addListener(() => {
     // Older Chrome builds might not support sidePanel yet – ignore.
     console.warn('Failed to set side panel behavior', err);
   }
+
+  // Create a context menu entry so users can explicitly trigger LexiLens
+  // on a selection via right-click.
+  try {
+    chrome.contextMenus?.create({
+      id: 'lexilens_context_menu',
+      title: 'LexiLens This',
+      contexts: ['selection'],
+    });
+  } catch (err) {
+    console.warn('Failed to create LexiLens context menu', err);
+  }
 });
 
 function openSidePanelFromMessageSender(sender: chrome.runtime.MessageSender) {
@@ -182,6 +194,34 @@ chrome.runtime.onStartup.addListener(() => {
     });
   } catch (err) {
     console.warn('Error during onStartup side panel initialization', err);
+  }
+});
+
+// Handle context menu clicks for "LexiLens This" – open the side panel
+// and ask the content script to process the current selection.
+chrome.contextMenus?.onClicked.addListener((info, tab) => {
+  if (info.menuItemId !== 'lexilens_context_menu') return;
+  if (!tab || tab.id == null) return;
+
+  try {
+    openSidePanelFromTab(tab);
+    setAutoOpenOnSelection(true);
+  } catch (err) {
+    console.warn('Failed to open side panel from context menu', err);
+  }
+
+  try {
+    chrome.tabs.sendMessage(
+      tab.id,
+      { type: 'LEXILENS_CONTEXT_MENU' },
+      () => {
+        if (chrome.runtime.lastError) {
+          console.warn('Failed to notify content script from context menu', chrome.runtime.lastError);
+        }
+      },
+    );
+  } catch (err) {
+    console.warn('Error sending context menu trigger to content script', err);
   }
 });
 
