@@ -25,7 +25,7 @@ export interface CommonMistake {
 
 export interface RelatedWord {
   word: string;
-  relationship: 'synonym' | 'antonym' | 'broader' | 'narrower';
+  relationship: 'synonym' | 'antonym' | 'broader' | 'narrower' | 'collocate';
   keyDifference: string;
   whenToUse: string;
 }

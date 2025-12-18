@@ -13,7 +13,8 @@ const relationshipConfig = {
   antonym: { label: 'Opposite', color: 'text-red-600 dark:text-red-400' },
   broader: { label: 'Broader', color: 'text-purple-600 dark:text-purple-400' },
   narrower: { label: 'Narrower', color: 'text-green-600 dark:text-green-400' },
-};
+  collocate: { label: 'Collocate', color: 'text-teal-600 dark:text-teal-400' },
+} as const;
 
 export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldingProps) {
   const baseWord = word || 'Word';
