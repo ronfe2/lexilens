@@ -128,27 +128,6 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
         </div>
       </div>
 
-      {data.personalizedTip && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mb-4 bg-gradient-to-r from-primary-50 to-purple-50 dark:from-primary-900/20 dark:to-purple-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4"
-        >
-          <div className="flex items-start gap-2">
-            <Sparkles className="h-5 w-5 text-primary-500 flex-shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-primary-700 dark:text-primary-300">
-                个性化学习建议
-              </p>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                {data.personalizedTip}
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
       <div className="space-y-3">
         {selectedIndex === null ? (
           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -207,6 +186,27 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
           })()
         )}
       </div>
+
+      {data.personalizedTip && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.5 }}
+          className="bg-gradient-to-r from-primary-50 to-purple-50 dark:from-primary-900/20 dark:to-purple-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4"
+        >
+          <div className="flex items-start gap-2">
+            <Sparkles className="h-5 w-5 text-primary-500 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-primary-700 dark:text-primary-300">
+                个性化学习建议
+              </p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                {data.personalizedTip}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
     </motion.section>
   );
 }
