@@ -8,10 +8,12 @@ import {
 
 console.log('LexiLens content script loaded');
 
+type SelectionTrigger = 'selection' | 'double-click';
+
 let selectedText = '';
 let selectedContext = '';
 
-function buildContextPayload(text: string) {
+function buildContextPayload(text: string, trigger: SelectionTrigger) {
   const pageText = document.body.innerText || '';
 
   // Prefer the full sentence where the selection appears, but extend
@@ -29,6 +31,7 @@ function buildContextPayload(text: string) {
     context: selectedContext,
     pageType,
     url: window.location.href,
+    trigger,
   };
 }
 
@@ -59,7 +62,7 @@ document.addEventListener('mouseup', () => {
 
   // Short selections (word/phrase) trigger immediate coaching
   if (text && text.length > 0 && text.length < 100) {
-    sendSelection(buildContextPayload(text));
+    sendSelection(buildContextPayload(text, 'selection'));
   }
 });
 
@@ -69,6 +72,6 @@ document.addEventListener('dblclick', () => {
 
   // Double-click is treated as strong intent, no length limit
   if (text && text.length > 0) {
-    sendSelection(buildContextPayload(text));
+    sendSelection(buildContextPayload(text, 'double-click'));
   }
 });

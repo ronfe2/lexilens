@@ -1,6 +1,5 @@
 import logging
 import time
-from typing import Dict, Tuple
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -15,7 +14,7 @@ router = APIRouter()
 # This keeps pronunciation lookup "best-effort" and prevents rate limiting
 # from degrading the overall experience.
 CACHE_TTL_SECONDS = 60 * 60  # 1 hour
-_pronunciation_cache: Dict[str, Tuple[float, PronunciationResponse]] = {}
+_pronunciation_cache: dict[str, tuple[float, PronunciationResponse]] = {}
 
 
 @router.get("/pronunciation/{word}")

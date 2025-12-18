@@ -95,13 +95,13 @@ Return as JSON array with this exact structure:
     ) -> tuple[str, str]:
         system_prompt = "You are a vocabulary coach building connections."
 
-        personalization = ""
-        if (learning_history and "strategy" in learning_history and
-                word.lower() == "tactic"):
-            personalization = """
-IMPORTANT: The user previously learned "strategy". Start your response \
-with a personalized message that connects these two words.
-Include a "personalized" field in your JSON with this message.
+        history_note = ""
+        if learning_history:
+            history_preview = ", ".join(learning_history[:10])
+            history_note = f"""
+The learner has previously studied these words: {history_preview}.
+Use this learning history to make the personalized coaching feel connected \
+to what they already know when it is helpful.
 """
 
         user_prompt = f"""Task: Recommend 2 related words/phrases that help \
@@ -113,10 +113,17 @@ For each related word, provide:
 - difference: [how it differs from "{word}"]
 - when_to_use: [usage guidance]
 
-{personalization}
+Personalized coaching (Chinese):
+- Always include a "personalized" field in the JSON response.
+- The "personalized" value must be written in **Simplified Chinese**.
+- It should be 1–3 short sentences that speak directly to the learner.
+- When learning history is available, briefly connect this word to some of \
+their previously studied words.
 
 Word: {word}
 Context: {context}
+Learning history (may be empty): {learning_history or []}
+{history_note}
 
 Return as JSON with this structure:
 {{
@@ -124,18 +131,18 @@ Return as JSON with this structure:
     {{
       "word": "related word 1",
       "relationship": "synonym/antonym/etc",
-      "difference": "key difference explanation",
-      "when_to_use": "when to use each word"
+      "difference": "key difference explanation (can be in English)",
+      "when_to_use": "when to use each word (can be in English)"
     }},
     {{
       "word": "related word 2",
       "relationship": "synonym/antonym/etc",
-      "difference": "key difference explanation",
-      "when_to_use": "when to use each word"
+      "difference": "key difference explanation (can be in English)",
+      "when_to_use": "when to use each word (can be in English)"
     }}
-  ]{"," if personalization else ""}
-  {"'personalized': 'Your personalized message connecting to " +
-   "previously learned words'" if personalization else ""}
+  ],
+  "personalized": "这里填写给学习者的个性化建议，用简体中文，1-3 句，直接和学习者对话，\
+可以引用他们之前学过的单词。"
 }}"""
 
         return system_prompt, user_prompt

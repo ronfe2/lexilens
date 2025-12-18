@@ -8,10 +8,12 @@ import CognitiveScaffolding from '../components/CognitiveScaffolding';
 import EmptyState from '../components/EmptyState';
 import ErrorDisplay from '../components/ErrorDisplay';
 import LoadingSpinner from '../components/LoadingSpinner';
+import UserProfileCard from '../components/UserProfileCard';
 import { useAppStore } from '../store/appStore';
 import { useStreamingAnalysis } from './hooks/useStreamingAnalysis';
 import { useLearningHistory } from './hooks/useLearningHistory';
 import { useTheme } from './hooks/useTheme';
+import { useUserProfile } from './hooks/useUserProfile';
 import type { AnalysisRequest } from '../shared/types';
 
 function App() {
@@ -19,6 +21,7 @@ function App() {
   const { words: learningWords, addEntry } = useLearningHistory();
   const { startAnalysis } = useStreamingAnalysis();
   const { theme, toggleTheme } = useTheme();
+  const { profile } = useUserProfile();
 
   const lastSelectionRef = useRef<AnalysisRequest | null>(null);
 
@@ -102,14 +105,6 @@ function App() {
     !!analysisResult?.layer3 ||
     !!analysisResult?.layer4;
 
-  if (!currentWord && !hasAnalysis && !isLoading && !error) {
-    return (
-      <div className="h-full w-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <EmptyState />
-      </div>
-    );
-  }
-
   return (
     <div className="h-full w-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <motion.div
@@ -118,51 +113,63 @@ function App() {
         transition={{ type: 'spring', stiffness: 260, damping: 24 }}
         className="h-full w-full flex flex-col"
       >
-        <Header
-          word={analysisResult?.word || currentWord || ''}
-          pronunciation={analysisResult?.pronunciation}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-        />
-
-        <div className="flex-1 overflow-y-auto space-y-1 pb-4">
-          {error ? (
-            <ErrorDisplay message={error} onRetry={handleRetry} />
-          ) : (
-            <>
-              {analysisResult?.layer1 && (
-                <BehaviorPattern data={analysisResult.layer1} />
-              )}
-
-              {analysisResult?.layer2 && (
-                <LiveContexts contexts={analysisResult.layer2} />
-              )}
-
-              {analysisResult?.layer3 && (
-                <CommonMistakes mistakes={analysisResult.layer3} />
-              )}
-
-              {analysisResult?.layer4 && (
-                <CognitiveScaffolding
-                  data={analysisResult.layer4}
-                  word={analysisResult.word || currentWord || ''}
-                />
-              )}
-
-              {isLoading && (
-                <div className="flex justify-center py-6">
-                  <LoadingSpinner
-                    text={
-                      analysisResult?.layer1
-                        ? 'Deepening the pattern, exploring more contexts...'
-                        : 'LexiLens is reading the sentence and summoning your coach...'
-                    }
-                  />
-                </div>
-              )}
-            </>
-          )}
+        <div className="px-6 pt-4 pb-2">
+          <UserProfileCard profile={profile} />
         </div>
+
+        {(!currentWord && !hasAnalysis && !isLoading && !error) ? (
+          <div className="flex-1 flex items-center justify-center px-6 pb-6">
+            <EmptyState />
+          </div>
+        ) : (
+          <>
+            <Header
+              word={analysisResult?.word || currentWord || ''}
+              pronunciation={analysisResult?.pronunciation}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+            />
+
+            <div className="flex-1 overflow-y-auto space-y-1 pb-4">
+              {error ? (
+                <ErrorDisplay message={error} onRetry={handleRetry} />
+              ) : (
+                <>
+                  {analysisResult?.layer1 && (
+                    <BehaviorPattern data={analysisResult.layer1} />
+                  )}
+
+                  {analysisResult?.layer2 && (
+                    <LiveContexts contexts={analysisResult.layer2} />
+                  )}
+
+                  {analysisResult?.layer3 && (
+                    <CommonMistakes mistakes={analysisResult.layer3} />
+                  )}
+
+                  {analysisResult?.layer4 && (
+                    <CognitiveScaffolding
+                      data={analysisResult.layer4}
+                      word={analysisResult.word || currentWord || ''}
+                    />
+                  )}
+
+                  {isLoading && (
+                    <div className="flex justify-center py-6">
+                      <LoadingSpinner
+                        text={
+                          analysisResult?.layer1
+                            ? 'Deepening the pattern, exploring more contexts...'
+                            : 'LexiLens is reading the sentence and summoning your coach...'
+                        }
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        )}
       </motion.div>
     </div>
   );
