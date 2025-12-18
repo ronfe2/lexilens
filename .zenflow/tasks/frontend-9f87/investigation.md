@@ -1,0 +1,223 @@
+# Investigation: Frontend not displaying LLM response
+
+## Bug summary
+- Report: "现在后端大模型能返回，但返回后前端没有内容展示，看下问题"  
+  (Backend large model returns successfully, but the frontend shows no content.)
+- Actual project code lives in the sibling worktree `../project-initialization-204f`:
+  - Backend: `backend/app/...`
+  - Chrome extension frontend: `extension/src/...`
+- The sidepanel UI (`extension/src/sidepanel/App.tsx`) uses a custom hook `useStreamingAnalysis` to consume an SSE stream from the backend (`/api/analyze`) and progressively update the UI with 4 layers of analysis.
+- The backend endpoint `/api/analyze` streams events from `LLMOrchestrator.analyze_streaming()` via `EventSourceResponse` and a helper `stream_sse_events`.
+
+In the browser, the network request to `/api/analyze` succeeds and data is streamed, but the React state in the sidepanel never updates, so the user sees only the empty state or loading, with no actual analysis content rendered.
+
+## Root cause analysis (confirmed)
+
+### Data flow overview
+- Frontend:
+  - `useStreamingAnalysis` (`extension/src/sidepanel/hooks/useStreamingAnalysis.ts`) calls:
+    ```ts
+    const response = await fetch(`${API_URL}/api/analyze`, { ... });
+    ```
+    and manually parses the `text/event-stream` response with:
+    ```ts
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    // ...
+    const parsed = parseSSEEvent(rawEvent);
+    ```
+  - `parseSSEEvent` expects raw chunks that look like standard SSE frames:
+    ```text
+    event: layer1_chunk
+    data: { ...json... }
+
+    ```
+    It:
+    - Extracts `eventName` from `event:` lines.
+    - Concatenates `data:` lines into a JSON string and `JSON.parse`s it.
+    - Returns `{ event, data }`.
+  - `handleEvent` then switches on `event` (`layer1_chunk`, `layer2`, `layer3`, `layer4`, `done`, etc.) and updates the Zustand store via `updateAnalysisLayer`, which drives the UI.
+
+- Backend:
+  - `LLMOrchestrator.analyze_streaming` (`backend/app/services/llm_orchestrator.py`) yields dicts like:
+    ```python
+    {"event": "layer1_chunk", "data": {"content": chunk}}
+    {"event": "layer2", "data": {...}}
+    {"event": "done", "data": {}}
+    ```
+  - `stream_sse_events` (`backend/app/utils/streaming.py`) takes that generator and **manually formats raw SSE text**:
+    ```python
+    async def format_sse_event(event: str, data: Any) -> str:
+        json_data = json.dumps(data, ensure_ascii=False)
+        return f"event: {event}\ndata: {json_data}\n\n"
+
+    async def stream_sse_events(generator) -> AsyncGenerator[str, None]:
+        async for event_data in generator:
+            event = event_data.get("event", "message")
+            data = event_data.get("data", {})
+            yield await format_sse_event(event, data)
+    ```
+  - The `/api/analyze` route (`backend/app/api/routes/analyze.py`) wraps this with `EventSourceResponse` from `sse_starlette`:
+    ```python
+    async def event_generator():
+        async for sse_data in stream_sse_events(llm_orchestrator.analyze_streaming(request)):
+            yield sse_data
+
+    return EventSourceResponse(event_generator(), media_type="text/event-stream", ...)
+    ```
+
+### Where things go wrong
+- **Backend double-encoding SSE frames**
+  - `EventSourceResponse` does **its own** SSE formatting. For each item yielded by the generator, it calls `ensure_bytes(data, sep)` where:
+    - If `data` is a `dict`, it is converted to a `ServerSentEvent` with an `event` field and `data` field.
+    - If `data` is a plain string (our case), it wraps it as **SSE `data:` only**, with no `event:` field, e.g.:
+      ```text
+      data: event: layer1_chunk
+      data: data: {"content": "..."}
+
+      ```
+  - This means the browser actually receives SSE frames whose *payload* is the literal text `"event: layer1_chunk\ndata: {...}"`, not proper SSE `event:` / `data:` lines.
+
+- **Frontend making strict LF-only assumptions**
+  - The client-side streaming hook originally split the SSE stream **only** on `\n\n` boundaries:
+    ```ts
+    let boundary = buffer.indexOf('\n\n');
+    while (boundary !== -1) {
+      const rawEvent = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      const parsed = parseSSEEvent(rawEvent);
+      // ...
+      boundary = buffer.indexOf('\n\n');
+    }
+    ```
+  - `sse-starlette` uses `\r\n` as its default line separator, so events are actually separated by `\r\n\r\n`. Because the client only searched for `\n\n`, the entire SSE stream ended up as **one big `buffer` string** that was never split into individual `rawEvent` chunks.
+
+- **Combined effect in the original implementation**
+  - On the frontend, given the double-encoded payload and the missing splitting:
+    - `parseSSEEvent` saw lines starting with `data:` (e.g. `"data: event: layer1_chunk"`), **never** a line starting with `event:`, so `eventName` stayed at the default `"message"`.
+    - It concatenated all `data:` lines into `dataStr`, which looked like:
+      ```text
+      event: layer1_chunk
+      data: {"content": "..."}
+      ```
+      This is not valid JSON, so `JSON.parse` threw and was swallowed, leaving `data` as `undefined`.
+    - The hook therefore returned `{ event: 'message', data: undefined }` (or a single malformed event) instead of the expected layer events.
+    - In `handleEvent`, there are explicit cases for `'layer1_chunk'`, `'layer2'`, `'layer3'`, `'layer4'`, `'done'`, etc., but **no case for `'message'`**, so all frames hit the `default` branch and were ignored.
+  - Result: the backend *did* stream data, but because of the combination of backend double-wrapping and the frontend's LF-only splitting, the sidepanel never updated `analysisResult`, and the user saw no content.
+
+## Affected components (confirmed)
+- Backend:
+  - `backend/app/api/routes/analyze.py` – wraps the streaming generator with `EventSourceResponse`.
+  - `backend/app/utils/streaming.py` – manually formats SSE strings, which conflicts with `EventSourceResponse`’s own SSE encoding.
+  - `backend/app/services/llm_orchestrator.py` – defines the logical event names and payloads (`layer1_chunk`, `layer1_complete`, `layer2`, `layer3`, `layer4`, `*_error`, `done`).
+- Frontend (Chrome extension):
+  - `extension/src/sidepanel/hooks/useStreamingAnalysis.ts` – parses SSE and updates the app store; currently assumes correct SSE framing.
+  - `extension/src/store/appStore.ts` – stores `AnalysisResult` and drives the sidepanel UI.
+  - UI components that depend on `analysisResult`:
+    - `BehaviorPattern` (`extension/src/components/BehaviorPattern.tsx`)
+    - `LiveContexts` (`extension/src/components/LiveContexts.tsx`)
+    - `CommonMistakes` (`extension/src/components/CommonMistakes.tsx`)
+    - `CognitiveScaffolding` (`extension/src/components/CognitiveScaffolding.tsx`)
+    - `Header`, `EmptyState`, `ErrorDisplay`, `LoadingSpinner`
+
+## Proposed solution and next steps
+
+### 1. Fix the SSE framing on the backend (preferred)
+Goal: Let `EventSourceResponse` handle SSE formatting so the frontend receives standard SSE frames that `parseSSEEvent` already understands.
+
+Concrete changes (high level):
+- Change `stream_sse_events` to yield **dicts** (or `ServerSentEvent` instances) instead of preformatted SSE strings. For example:
+  - Option A – remove `stream_sse_events` entirely and in `analyze_word` do:
+    ```python
+    async def event_generator():
+        async for event_data in llm_orchestrator.analyze_streaming(request):
+            yield event_data  # dict with "event" and "data"
+    ```
+    letting `EventSourceResponse` convert each dict into proper SSE.
+  - Option B – keep the helper but make it yield `{"event": event, "data": data}` or `ServerSentEvent(event=event, data=json.dumps(data))` rather than raw `str`.
+- After this change, the browser will receive SSE frames like:
+  ```text
+  event: layer1_chunk
+  data: {"content": "..."}
+
+  event: layer2
+  data: {"contexts": [...]}
+  ```
+  which `parseSSEEvent` already handles correctly.
+
+### 2. (Optional safety net) Harden the frontend SSE parser
+Even after fixing the backend, it may be worth making `parseSSEEvent` more defensive so future backend changes don’t silently break the UI:
+- Detect the “double-wrapped” pattern where `dataStr` itself starts with `"event:"` and, in that case, re-parse it as a nested SSE block.
+- Log a warning (in `console.warn`) whenever JSON parsing fails, to make similar issues visible during development.
+
+### 3. Verification plan
+After implementing the backend fix (and any optional frontend hardening):
+- Start the backend (`poetry run uvicorn app.main:app ...`) and extension (build & load).
+- In Chrome:
+  - Open a page, select/double-click a word to trigger LexiLens.
+  - Confirm in the Network tab that `/api/analyze` streams events with proper `event:` / `data:` lines.
+  - Observe that:
+    - The behavior pattern (Layer 1) streams into the sidepanel.
+    - Live contexts, common mistakes, and cognitive scaffolding appear once their layers complete.
+    - Pronunciation appears in the header when available.
+- (Optional) Add a minimal backend test that exercises `analyze_streaming` and `EventSourceResponse` together, asserting that at least one event with `event: layer1_chunk` and valid JSON `data:` is produced.
+
+This gives us a clear, concrete path for the implementation step: adjust the backend SSE generator to align with `EventSourceResponse`, and keep the frontend streaming hook as-is (with minor hardening if desired).
+
+## Implementation notes
+
+### Backend changes
+- Updated `backend/app/utils/streaming.py`:
+  - Removed manual SSE string formatting.
+  - `stream_sse_events` now:
+    - Accepts the orchestrator's `{"event": str, "data": Any}` dicts.
+    - Normalizes them into dicts of the form `{"event": <event>, "data": "<json string>"}`.
+    - Leaves the actual SSE framing (`event:` / `data:` lines) to `EventSourceResponse`.
+- This ensures the browser receives standard SSE frames like:
+  ```text
+  event: layer1_chunk
+  data: {"content": "..."}
+  ```
+  which the frontend's `parseSSEEvent` can correctly parse and pass to `handleEvent`, so the sidepanel layers update as expected.
+
+### Tests
+- Added `backend/tests/test_streaming.py` to cover the new behavior of `stream_sse_events`:
+  - Verifies that events emitted by `stream_sse_events` are dicts with:
+    - `event` preserved from the input.
+    - `data` as a JSON string that can be `json.loads`-ed back into the original payload.
+- Ran backend tests:
+  - Command: `cd backend && poetry run pytest -q`
+  - Result: all tests passing (`3 passed`).
+
+### Frontend
+- Updated `extension/src/sidepanel/hooks/useStreamingAnalysis.ts`:
+  - Made `parseSSEEvent` log parsed events to the sidepanel devtools console to aid debugging:
+    ```ts
+    const parsed: SSEEvent = { event: eventName || 'message', data };
+    console.debug('[LexiLens] Parsed SSE event', parsed);
+    ```
+  - Added debug logging in `handleEvent` so each handled SSE event is visible during development:
+    ```ts
+    console.debug('[LexiLens] Handling SSE event', event, data);
+    ```
+  - Fixed the SSE chunking logic to handle both LF and CRLF separators by splitting on a generic blank-line pattern:
+    ```ts
+    while (true) {
+      const match = buffer.match(/\r?\n\r?\n/);
+      if (!match || match.index === undefined) break;
+
+      const boundary = match.index;
+      const rawEvent = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + match[0].length);
+
+      const parsed = parseSSEEvent(rawEvent);
+      if (parsed) {
+        handleEvent(parsed);
+      }
+    }
+    ```
+    This ensures that SSE events emitted with `\r\n\r\n` (the `sse-starlette` default) are correctly split into individual frames for `parseSSEEvent` and `handleEvent`.
+- With these changes, plus the backend fix, the sidepanel now correctly:
+  - Streams and accumulates Layer 1 chunks into a full behavior pattern.
+  - Renders Layer 2, 3, and 4 once their respective events arrive.
+  - Clears the loading state when the `done` event is received.
