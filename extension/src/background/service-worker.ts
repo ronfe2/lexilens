@@ -203,6 +203,23 @@ chrome.contextMenus?.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== 'lexilens_context_menu') return;
   if (!tab || tab.id == null) return;
 
+  const selectionText =
+    typeof info.selectionText === 'string' ? info.selectionText.trim() : '';
+
+  // Best-effort: seed lastSelection so that even if the content script
+  // cannot send a fresh WORD_SELECTED (e.g. extension reloaded and the
+  // content script context is invalidated), the side panel can still
+  // pick up this selection via SIDE_PANEL_READY and start an analysis.
+  if (selectionText) {
+    lastSelection = {
+      word: selectionText,
+      context: selectionText,
+      pageType: 'other',
+      learningHistory: [],
+      url: info.pageUrl,
+    };
+  }
+
   try {
     openSidePanelFromTab(tab);
     setAutoOpenOnSelection(true);
@@ -216,7 +233,10 @@ chrome.contextMenus?.onClicked.addListener((info, tab) => {
       { type: 'LEXILENS_CONTEXT_MENU' },
       () => {
         if (chrome.runtime.lastError) {
-          console.warn('Failed to notify content script from context menu', chrome.runtime.lastError);
+          console.warn(
+            'Failed to notify content script from context menu',
+            chrome.runtime.lastError,
+          );
         }
       },
     );
