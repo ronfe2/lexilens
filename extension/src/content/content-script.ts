@@ -43,15 +43,26 @@ const sendSelection = debounce((payload: ReturnType<typeof buildContextPayload>)
         data: payload,
       },
       () => {
-        // If the extension context was really invalidated or any other
-        // transient error happens, surface it as a warning but don't break
-        // the host page.
-        if (chrome.runtime.lastError) {
-          console.warn('LexiLens: failed to send WORD_SELECTED', chrome.runtime.lastError);
+        // Extension context might be invalidated if the extension was
+        // reloaded while this tab is still open. In that case we silently
+        // ignore the error so we don't spam the page console.
+        const lastError = chrome.runtime.lastError;
+        if (!lastError) return;
+
+        const message = String(lastError.message || '');
+        if (message.includes('Extension context invalidated')) {
+          return;
         }
+
+        console.warn('LexiLens: failed to send WORD_SELECTED', lastError);
       },
     );
-  } catch (err) {
+  } catch (err: any) {
+    const message = String((err && err.message) || '');
+    if (message.includes('Extension context invalidated')) {
+      return;
+    }
+
     console.warn('LexiLens: unexpected error sending WORD_SELECTED', err);
   }
 }, 150);
