@@ -67,26 +67,43 @@ In the browser, the network request to `/api/analyze` succeeds and data is strea
     ```
 
 ### Where things go wrong
-- `EventSourceResponse` does **its own** SSE formatting. For each item yielded by the generator, it calls `ensure_bytes(data, sep)` where:
-  - If `data` is a `dict`, it is converted to a `ServerSentEvent` with an `event` field and `data` field.
-  - If `data` is a plain string (our case), it wraps it as **SSE `data:` only**, with no `event:` field, e.g.:
-    ```text
-    data: event: layer1_chunk
-    data: data: {"content": "..."}
+- **Backend double-encoding SSE frames**
+  - `EventSourceResponse` does **its own** SSE formatting. For each item yielded by the generator, it calls `ensure_bytes(data, sep)` where:
+    - If `data` is a `dict`, it is converted to a `ServerSentEvent` with an `event` field and `data` field.
+    - If `data` is a plain string (our case), it wraps it as **SSE `data:` only**, with no `event:` field, e.g.:
+      ```text
+      data: event: layer1_chunk
+      data: data: {"content": "..."}
 
+      ```
+  - This means the browser actually receives SSE frames whose *payload* is the literal text `"event: layer1_chunk\ndata: {...}"`, not proper SSE `event:` / `data:` lines.
+
+- **Frontend making strict LF-only assumptions**
+  - The client-side streaming hook originally split the SSE stream **only** on `\n\n` boundaries:
+    ```ts
+    let boundary = buffer.indexOf('\n\n');
+    while (boundary !== -1) {
+      const rawEvent = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      const parsed = parseSSEEvent(rawEvent);
+      // ...
+      boundary = buffer.indexOf('\n\n');
+    }
     ```
-- This means the browser actually receives SSE frames whose *payload* is the literal text `"event: layer1_chunk\ndata: {...}"`, not proper SSE `event:` / `data:` lines.
-- On the frontend:
-  - `parseSSEEvent` sees lines starting with `data:` (e.g. `"data: event: layer1_chunk"`), **never** a line starting with `event:`, so `eventName` stays at the default `"message"`.
-  - It concatenates all `data:` lines into `dataStr`, which now looks like:
-    ```text
-    event: layer1_chunk
-    data: {"content": "..."}
-    ```
-    This is not valid JSON, so `JSON.parse` throws and is swallowed, leaving `data` as `undefined`.
-  - The hook therefore returns `{ event: 'message', data: undefined }` for every frame.
-  - In `handleEvent`, there are explicit cases for `'layer1_chunk'`, `'layer2'`, `'layer3'`, `'layer4'`, `'done'`, etc., but **no case for `'message'`**, so all frames hit the `default` branch and are ignored.
-- Result: the backend *does* stream data, but the sidepanel never updates `analysisResult`, and the user sees no content.
+  - `sse-starlette` uses `\r\n` as its default line separator, so events are actually separated by `\r\n\r\n`. Because the client only searched for `\n\n`, the entire SSE stream ended up as **one big `buffer` string** that was never split into individual `rawEvent` chunks.
+
+- **Combined effect in the original implementation**
+  - On the frontend, given the double-encoded payload and the missing splitting:
+    - `parseSSEEvent` saw lines starting with `data:` (e.g. `"data: event: layer1_chunk"`), **never** a line starting with `event:`, so `eventName` stayed at the default `"message"`.
+    - It concatenated all `data:` lines into `dataStr`, which looked like:
+      ```text
+      event: layer1_chunk
+      data: {"content": "..."}
+      ```
+      This is not valid JSON, so `JSON.parse` threw and was swallowed, leaving `data` as `undefined`.
+    - The hook therefore returned `{ event: 'message', data: undefined }` (or a single malformed event) instead of the expected layer events.
+    - In `handleEvent`, there are explicit cases for `'layer1_chunk'`, `'layer2'`, `'layer3'`, `'layer4'`, `'done'`, etc., but **no case for `'message'`**, so all frames hit the `default` branch and were ignored.
+  - Result: the backend *did* stream data, but because of the combination of backend double-wrapping and the frontend's LF-only splitting, the sidepanel never updated `analysisResult`, and the user saw no content.
 
 ## Affected components (confirmed)
 - Backend:
@@ -173,4 +190,34 @@ This gives us a clear, concrete path for the implementation step: adjust the bac
   - Result: all tests passing (`3 passed`).
 
 ### Frontend
-- No changes were required in the frontend hook (`extension/src/sidepanel/hooks/useStreamingAnalysis.ts`); once the backend sends correctly framed SSE with JSON payloads, the existing parser and handlers update the UI as designed.
+- Updated `extension/src/sidepanel/hooks/useStreamingAnalysis.ts`:
+  - Made `parseSSEEvent` log parsed events to the sidepanel devtools console to aid debugging:
+    ```ts
+    const parsed: SSEEvent = { event: eventName || 'message', data };
+    console.debug('[LexiLens] Parsed SSE event', parsed);
+    ```
+  - Added debug logging in `handleEvent` so each handled SSE event is visible during development:
+    ```ts
+    console.debug('[LexiLens] Handling SSE event', event, data);
+    ```
+  - Fixed the SSE chunking logic to handle both LF and CRLF separators by splitting on a generic blank-line pattern:
+    ```ts
+    while (true) {
+      const match = buffer.match(/\r?\n\r?\n/);
+      if (!match || match.index === undefined) break;
+
+      const boundary = match.index;
+      const rawEvent = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + match[0].length);
+
+      const parsed = parseSSEEvent(rawEvent);
+      if (parsed) {
+        handleEvent(parsed);
+      }
+    }
+    ```
+    This ensures that SSE events emitted with `\r\n\r\n` (the `sse-starlette` default) are correctly split into individual frames for `parseSSEEvent` and `handleEvent`.
+- With these changes, plus the backend fix, the sidepanel now correctly:
+  - Streams and accumulates Layer 1 chunks into a full behavior pattern.
+  - Renders Layer 2, 3, and 4 once their respective events arrive.
+  - Clears the loading state when the `done` event is received.
