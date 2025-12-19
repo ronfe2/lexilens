@@ -247,11 +247,11 @@ Overall, the implemented UX should feel like **turning your current page into an
    ```bash
    pnpm build
    ```
-   This writes a ready-to-load extension into `extension/dist/`.
+   This writes a ready-to-load extension into the **project root** `dist/` folder.
 6. Load the extension in Chrome:
    - Open `chrome://extensions/`.
    - Enable **Developer mode**.
-   - Click **Load unpacked** and select the `extension/dist` folder.
+   - Click **Load unpacked** and select the root-level `dist` folder for this project.
 
 ### 4.4 Running the Demo Flow
 

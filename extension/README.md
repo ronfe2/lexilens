@@ -19,11 +19,14 @@ cp .env.example .env
 pnpm build
 ```
 
+This writes the production-ready extension into the **project root** `dist/` folder
+(e.g. `/path/to/sinclair/dist`), not `extension/dist/`.
+
 4. Load in Chrome:
 - Open `chrome://extensions/`
 - Enable "Developer mode"
 - Click "Load unpacked"
-- Select the `dist` folder
+- Select the root-level `dist` folder for this project
 
 ## Development
 
