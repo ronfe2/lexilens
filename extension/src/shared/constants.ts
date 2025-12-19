@@ -4,7 +4,6 @@ export const STORAGE_KEYS = {
   LEARNING_HISTORY: 'lexilens_learning_history',
   PREFERENCES: 'lexilens_preferences',
   USER_PROFILE: 'lexilens_user_profile',
-  SIDEPANEL_PREFS: 'lexilens_sidepanel_prefs',
 } as const;
 
 export const DEMO_LEARNING_HISTORY = [

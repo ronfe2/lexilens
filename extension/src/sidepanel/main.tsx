@@ -4,7 +4,8 @@ import App from './App';
 import './styles/global.css';
 
 // Establish a long-lived connection so the background script can track
-// when the side panel is open or closed and adjust auto-open behavior.
+// when the side panel is open or closed and make decisions based on
+// whether the helper UI is currently visible.
 let sidepanelPort: chrome.runtime.Port | null = null;
 
 try {
