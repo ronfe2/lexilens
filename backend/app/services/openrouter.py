@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 
@@ -64,14 +64,16 @@ def _extract_json_from_text(text: str) -> str:
 class OpenRouterClient:
     def __init__(
         self,
-        api_key: str | None = None,
-        model_id: str | None = None,
-        base_url: str | None = None,
+        api_key: Optional[str] = None,
+        model_id: Optional[str] = None,
+        base_url: Optional[str] = None,
     ):
         self.api_key = api_key or settings.openrouter_api_key
         self.model_id = model_id or settings.openrouter_model_id
         self.base_url = base_url or settings.openrouter_base_url
         self.timeout = settings.request_timeout
+        # Use a dedicated image model when provided; otherwise fall back to the main model.
+        self.image_model_id = settings.openrouter_image_model_id or self.model_id
 
         if not self.api_key:
             raise ValueError("OpenRouter API key is required")
@@ -104,10 +106,82 @@ class OpenRouterClient:
             )
 
     @async_retry(max_retries=3, initial_delay=1.0)
+    async def generate_image(
+        self,
+        prompt: str,
+        model_id: Optional[str] = None,
+        temperature: float = 0.7,
+    ) -> str:
+        """
+        Call an OpenRouter image-capable model and return a single image URL.
+
+        The response shape follows OpenRouter's multimodal chat completions where
+        image outputs are attached to the first choice's message as an `images`
+        collection containing `image_url.url` fields.
+        """
+        messages = [{"role": "user", "content": prompt}]
+
+        payload: dict[str, Any] = {
+            "model": model_id or self.image_model_id,
+            "messages": messages,
+            "temperature": temperature,
+            # We mostly care about the image output, so keep text small.
+            "max_tokens": 256,
+            # Explicitly request image output in addition to text.
+            "modalities": ["text", "image"],
+            "stream": False,
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            try:
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self._get_headers(),
+                    json=payload,
+                )
+
+                if response.status_code != 200:
+                    await self._handle_error_response(response)
+
+                data = response.json()
+
+                try:
+                    choices = data.get("choices") or []
+                    if not choices:
+                        raise KeyError("No choices in response")
+
+                    message = choices[0].get("message") or {}
+                    images = message.get("images") or []
+                    if not images:
+                        raise KeyError("No images in response")
+
+                    first_image = images[0]
+                    image_url_obj = first_image.get("image_url") or {}
+                    image_url = image_url_obj.get("url")
+
+                    if not image_url:
+                        raise KeyError("Missing image_url.url in response")
+
+                    return image_url
+                except Exception as e:  # noqa: BLE001
+                    # Log a concise summary of the unexpected response shape to aid debugging
+                    logger.error(
+                        "Failed to parse image response from OpenRouter: %s | top-level keys=%s",
+                        e,
+                        list(data.keys()) if isinstance(data, dict) else type(data),
+                    )
+                    raise OpenRouterError("No image received from OpenRouter")
+
+            except httpx.TimeoutException:
+                raise APIConnectionError("Request timeout")
+            except httpx.RequestError as e:
+                raise APIConnectionError(f"Connection error: {str(e)}")
+
+    @async_retry(max_retries=3, initial_delay=1.0)
     async def complete(
         self,
         prompt: str,
-        system_prompt: str | None = None,
+        system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
         **kwargs: Any
@@ -148,7 +222,7 @@ class OpenRouterClient:
     async def stream(
         self,
         prompt: str,
-        system_prompt: str | None = None,
+        system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
         **kwargs: Any
@@ -233,7 +307,7 @@ class OpenRouterClient:
     async def complete_json(
         self,
         prompt: str,
-        system_prompt: str | None = None,
+        system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
         **kwargs: Any

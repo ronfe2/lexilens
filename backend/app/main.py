@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import analyze, pronunciation
+from app.api.routes import analyze, pronunciation, lexical_map
 from app.config import settings
 
 logging.basicConfig(
@@ -30,6 +30,7 @@ app.add_middleware(
 
 app.include_router(analyze.router, prefix="/api", tags=["analyze"])
 app.include_router(pronunciation.router, prefix="/api", tags=["pronunciation"])
+app.include_router(lexical_map.router, prefix="/api", tags=["lexical-map"])
 
 
 @app.get("/")

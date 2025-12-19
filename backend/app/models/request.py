@@ -1,15 +1,19 @@
 
+from __future__ import annotations
+
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 
 class AnalyzeRequest(BaseModel):
     word: str = Field(..., description="Selected word or phrase to analyze")
     context: str = Field(..., description="Full sentence or paragraph containing the word")
-    page_type: str | None = Field(
+    page_type: Optional[str] = Field(
         None,
         description="Type of page: 'news', 'academic', 'social', 'email', etc."
     )
-    learning_history: list[str] | None = Field(
+    learning_history: Optional[List[str]] = Field(
         default_factory=list,
         description="List of previously looked-up words for personalization"
     )
@@ -31,3 +35,8 @@ class PronunciationRequest(BaseModel):
 
 class LearningHistoryRequest(BaseModel):
     words: list[str] = Field(..., description="List of words to add to learning history")
+
+
+class LexicalImageRequest(BaseModel):
+    base_word: str = Field(..., description="Main word in the lexical map")
+    related_word: str = Field(..., description="Selected related word from the lexical map")

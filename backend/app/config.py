@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +15,8 @@ class Settings(BaseSettings):
     openrouter_api_key: str
     openrouter_model_id: str = "anthropic/claude-3.5-sonnet"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    # Optional image model for OpenRouter; falls back to `openrouter_model_id` when unset.
+    openrouter_image_model_id: Optional[str] = None
 
     api_host: str = "0.0.0.0"
     api_port: int = 8000

@@ -1,11 +1,15 @@
 
+from __future__ import annotations
+
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 class LiveContext(BaseModel):
     source: str = Field(..., description="Source type: 'twitter', 'news', 'academic'")
     text: str = Field(..., description="Example sentence from that source")
-    icon: str | None = Field(None, description="Icon identifier for UI")
+    icon: Optional[str] = Field(None, description="Icon identifier for UI")
 
 
 class CommonMistake(BaseModel):
@@ -39,7 +43,7 @@ class Layer4Response(BaseModel):
     related_words: list[RelatedWord] = Field(
         ..., description="Related words for cognitive scaffolding"
     )
-    personalized: str | None = Field(
+    personalized: Optional[str] = Field(
         None,
         description="Personalized message based on learning history"
     )
@@ -55,10 +59,21 @@ class AnalyzeResponse(BaseModel):
 class PronunciationResponse(BaseModel):
     word: str
     ipa: str = Field(..., description="IPA notation")
-    audio_url: str | None = Field(None, description="URL to audio pronunciation")
+    audio_url: Optional[str] = Field(None, description="URL to audio pronunciation")
 
 
 class ErrorResponse(BaseModel):
     error: str
-    detail: str | None = None
-    code: str | None = None
+    detail: Optional[str] = None
+    code: Optional[str] = None
+
+
+class LexicalImageResponse(BaseModel):
+    image_url: str = Field(
+        ...,
+        description="Data URL or HTTP URL for the generated lexical map image",
+    )
+    prompt: str = Field(
+        ...,
+        description="Final prompt sent to OpenRouter for traceability/debugging",
+    )

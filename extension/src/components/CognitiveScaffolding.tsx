@@ -1,11 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Lightbulb, ArrowRight, Sparkles } from 'lucide-react';
 import type { CognitiveScaffolding as CognitiveScaffoldingType } from '../shared/types';
+import { API_URL } from '../shared/constants';
 
 interface CognitiveScaffoldingProps {
   data: CognitiveScaffoldingType;
   word: string;
+}
+
+interface LexicalImageResponse {
+  image_url: string;
+  prompt?: string;
 }
 
 const relationshipConfig = {
@@ -35,6 +41,94 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
   }));
 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'text' | 'image'>('text');
+  const [imageState, setImageState] = useState<{
+    url: string | null;
+    isLoading: boolean;
+    error: string | null;
+    baseWord: string | null;
+    relatedWord: string | null;
+  }>({
+    url: null,
+    isLoading: false,
+    error: null,
+    baseWord: null,
+    relatedWord: null,
+  });
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+
+  // Reset image state whenever the selected node or base word changes.
+  useEffect(() => {
+    setViewMode('text');
+    setImageState({
+      url: null,
+      isLoading: false,
+      error: null,
+      baseWord: null,
+      relatedWord: null,
+    });
+    setIsImageModalOpen(false);
+  }, [selectedIndex, word]);
+
+  const handleGenerateImage = async () => {
+    if (selectedIndex === null) return;
+
+    const related = data.relatedWords[selectedIndex];
+    if (!related) return;
+
+    const base = baseWord;
+
+    setImageState({
+      url: null,
+      isLoading: true,
+      error: null,
+      baseWord: base,
+      relatedWord: related.word,
+    });
+    setViewMode('image');
+
+    try {
+      const resp = await fetch(`${API_URL}/api/lexical-map/image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          base_word: base,
+          related_word: related.word,
+        }),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+
+      const json: LexicalImageResponse = await resp.json();
+
+      setImageState((prev) => ({
+        ...prev,
+        url: json.image_url,
+        isLoading: false,
+      }));
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Lexical image generation failed', err);
+      setImageState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: '漫画生成失败，请稍后再试。',
+      }));
+      // Fall back to text view if image fails
+      setViewMode('text');
+    }
+  };
+
+  const handleShowText = () => {
+    setViewMode('text');
+  };
+
+  const handleShowImage = () => {
+    // Only switch view; actual generation is triggered explicitly via the CTA.
+    setViewMode('image');
+  };
 
   return (
     <motion.section
@@ -161,26 +255,94 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
                   )}
                 </div>
 
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-start gap-2">
-                    <ArrowRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-gray-700 dark:text-gray-300">
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
-                        关键区别：
-                      </span>{' '}
-                      {related.keyDifference}
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <ArrowRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-gray-700 dark:text-gray-300">
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
-                        使用场景：
-                      </span>{' '}
-                      {related.whenToUse}
-                    </p>
-                  </div>
+                <div className="mb-3 inline-flex rounded-full bg-gray-100 p-1 text-[11px] dark:bg-gray-800">
+                  <button
+                    type="button"
+                    onClick={handleShowText}
+                    className={`px-3 py-1 rounded-full transition-colors ${
+                      viewMode === 'text'
+                        ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-gray-50'
+                        : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    文字解释
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShowImage}
+                    className={`px-3 py-1 rounded-full transition-colors ${
+                      viewMode === 'image'
+                        ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-gray-50'
+                        : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    漫画解释
+                  </button>
                 </div>
+
+                <div className="space-y-3 text-sm">
+                  {viewMode === 'image' ? (
+                    imageState.isLoading ? (
+                      <div className="flex items-center justify-center py-8 text-xs text-gray-500 dark:text-gray-400">
+                        正在绘制漫画解释...
+                      </div>
+                    ) : imageState.url ? (
+                      <div className="mt-1 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/60">
+                        <img
+                          src={imageState.url}
+                          alt={`Visual explanation of the difference between ${baseWord} and ${related.word}`}
+                          className="w-full h-auto object-contain cursor-zoom-in"
+                          onClick={() => {
+                            if (imageState.url) {
+                              setIsImageModalOpen(true);
+                            }
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-6 text-xs text-gray-500 dark:text-gray-400">
+                        <p className="mb-3 text-center">
+                          点击下方按钮，为这对词汇绘制一张 XKCD 风格的漫画解释。
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleGenerateImage}
+                          disabled={imageState.isLoading}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full bg-primary-50 text-primary-700 hover:bg-primary-100 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-primary-900/30 dark:text-primary-200 dark:hover:bg-primary-900/60"
+                        >
+                          {imageState.isLoading ? '正在绘制漫画…' : '绘制漫画'}
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <>
+                      <div className="flex items-start gap-2">
+                        <ArrowRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                        <p className="text-gray-700 dark:text-gray-300">
+                          <span className="font-medium text-gray-900 dark:text-gray-100">
+                            关键区别：
+                          </span>{' '}
+                          {related.keyDifference}
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <ArrowRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                        <p className="text-gray-700 dark:text-gray-300">
+                          <span className="font-medium text-gray-900 dark:text-gray-100">
+                            使用场景：
+                          </span>{' '}
+                          {related.whenToUse}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {imageState.error && (
+                  <p className="mt-2 text-[11px] text-red-500 dark:text-red-400">
+                    {imageState.error}
+                  </p>
+                )}
               </motion.div>
             );
           })()
@@ -206,6 +368,31 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
             </div>
           </div>
         </motion.div>
+      )}
+
+      {imageState.url && isImageModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setIsImageModalOpen(false)}
+        >
+          <div
+            className="relative max-w-full max-h-full p-4"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setIsImageModalOpen(false)}
+              className="absolute right-4 top-4 rounded-full bg-black/70 px-2 py-1 text-xs text-white hover:bg-black/90"
+            >
+              关闭
+            </button>
+            <img
+              src={imageState.url}
+              alt="LexiLens 漫画解释大图"
+              className="max-h-[80vh] max-w-[90vw] object-contain"
+            />
+          </div>
+        </div>
       )}
     </motion.section>
   );
