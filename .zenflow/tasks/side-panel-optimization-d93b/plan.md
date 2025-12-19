@@ -64,3 +64,13 @@ Implement the task according to the technical specification and general engineer
    - What was implemented
    - How the solution was tested
    - The biggest issues or challenges encountered
+
+### [x] Step: fix merge error
+<!-- chat-id: 4bfedee4-1b0a-4a13-89b6-671bd495c1bb -->
+<!-- agent: CODEX -->
+
+我 merge 这个分支到 main 分支时报错
+
+Failed to merge: ApiError: GitServiceError: Invalid repository: CLI merge failed: git command failed: error: Your local changes to the following files would be overwritten by merge: backend/app/api/routes/pronunciation.py extension/manifest.json extension/src/content/content-script.ts extension/src/sidepanel/App.tsx Please commit your changes or stash them before you merge. Aborting
+
+解决一下这个问题
