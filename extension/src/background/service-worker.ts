@@ -1,5 +1,4 @@
 import type { AnalysisRequest } from '../shared/types';
-import { STORAGE_KEYS } from '../shared/constants';
 
 console.log('LexiLens background service worker loaded');
 
@@ -39,6 +38,9 @@ function openSidePanelFromTab(tab: chrome.tabs.Tab) {
     chrome.sidePanel.setOptions(
       {
         tabId,
+        // This path must match the built side panel HTML emitted by Vite/CRX.
+        // Vite currently outputs the side panel as `src/sidepanel/index.html`
+        // inside the final `dist/` bundle, so we keep that relative path here.
         path: 'src/sidepanel/index.html',
         enabled: true,
       },
@@ -95,6 +97,7 @@ chrome.runtime.onStartup.addListener(() => {
         chrome.sidePanel.setOptions(
           {
             tabId: activeTab.id,
+            // Use the built asset path as emitted by Vite/CRX.
             path: 'src/sidepanel/index.html',
             enabled: true,
           },
