@@ -2,8 +2,14 @@ import type { AnalysisRequest } from '../shared/types';
 
 console.log('LexiLens background service worker loaded');
 
-let lastSelection: AnalysisRequest | null = null;
+interface LastSelectionRecord {
+  selection: AnalysisRequest;
+  tabId?: number;
+}
+
+let lastSelection: LastSelectionRecord | null = null;
 let isSidepanelOpen = false;
+let activeTabId: number | null = null;
 
 // Ensure the side panel is wired to our extension action icon so users
 // can always open it manually if automatic opening ever fails.
@@ -28,6 +34,24 @@ chrome.runtime.onInstalled.addListener(() => {
   } catch (err) {
     console.warn('Failed to create LexiLens context menu', err);
   }
+});
+
+// Track the currently active tab so we can associate the side panel context
+// with the correct tab even though `sender.tab` is not populated for
+// side panel pages.
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  activeTabId = tabId;
+});
+
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) return;
+
+  chrome.tabs.query({ active: true, windowId }, (tabs) => {
+    const tab = tabs[0];
+    if (tab && tab.id != null) {
+      activeTabId = tab.id;
+    }
+  });
 });
 
 function openSidePanelFromTab(tab: chrome.tabs.Tab) {
@@ -136,11 +160,14 @@ chrome.contextMenus?.onClicked.addListener((info, tab) => {
   // pick up this selection via SIDE_PANEL_READY and start an analysis.
   if (selectionText) {
     lastSelection = {
-      word: selectionText,
-      context: selectionText,
-      pageType: 'other',
-      learningHistory: [],
-      url: info.pageUrl,
+      selection: {
+        word: selectionText,
+        context: selectionText,
+        pageType: 'other',
+        learningHistory: [],
+        url: info.pageUrl,
+      },
+      tabId: tab.id ?? undefined,
     };
   }
 
@@ -168,23 +195,27 @@ chrome.contextMenus?.onClicked.addListener((info, tab) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.debug('LexiLens background received message:', message);
 
   if (message.type === 'WORD_SELECTED') {
     const data = message.data || {};
+    const tabId = sender.tab?.id;
 
     // Only treat a selection as the "last" one when the side panel is
     // actually open. This avoids plain text selections made while the
     // panel is closed from implicitly influencing what is queried the
     // next time the panel is opened.
-    if (isSidepanelOpen) {
+    if (isSidepanelOpen && tabId != null) {
       lastSelection = {
-        word: data.word,
-        context: data.context,
-        pageType: data.pageType,
-        learningHistory: data.learningHistory,
-        url: data.url,
+        selection: {
+          word: data.word,
+          context: data.context,
+          pageType: data.pageType,
+          learningHistory: data.learningHistory,
+          url: data.url,
+        },
+        tabId,
       };
     }
 
@@ -193,7 +224,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'SIDE_PANEL_READY') {
-    sendResponse({ success: true, selection: lastSelection });
+    // Side panel pages don't populate `sender.tab`, so we fall back to the
+    // currently active tab ID tracked via `tabs.onActivated`. This lets us
+    // scope the "last selection" to the tab the user is looking at, which
+    // avoids replaying explanations when they switch tabs.
+    const tabId = sender.tab?.id ?? activeTabId ?? null;
+
+    const selection =
+      tabId != null &&
+      lastSelection &&
+      lastSelection.tabId != null &&
+      lastSelection.tabId === tabId
+        ? lastSelection.selection
+        : null;
+
+    sendResponse({ success: true, selection });
     return true;
   }
 
