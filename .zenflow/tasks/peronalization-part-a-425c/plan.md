@@ -18,7 +18,8 @@ Do not make assumptions on important decisions — get clarification first.
 
 ## Workflow Steps
 
-### [ ] Step: Technical Specification
+### [x] Step: Technical Specification
+<!-- chat-id: 7b83278e-cac5-48af-b3a7-d2724a424953 -->
 
 Assess the task's difficulty, as underestimating it leads to poor outcomes.
 - easy: Straightforward implementation, trivial bug fix or feature
@@ -50,15 +51,26 @@ Save to `{@artifacts_path}/plan.md`. If the feature is trivial and doesn't warra
 
 ---
 
-### [ ] Step: Implementation
+### [ ] Step: Frontend Implementation — Profile & Interests
 
-Implement the task according to the technical specification and general engineering best practices.
+Implement the sidepanel UI changes described in `spec.md`:
+- Update user profile model and English level selection (modal overlay, level descriptions).
+- Add profile icon and profile management view (avatar, nickname, level).
+- Implement interest cards and wordbook sections, backed by `chrome.storage.local`.
+- Ensure empty states and deletion flows are reflected correctly in the UI.
 
-1. Break the task into steps where possible.
-2. Implement the required changes in the codebase.
-3. Add and run relevant tests and linters.
-4. Perform basic manual verification if applicable.
-5. After completion, write a report to `{@artifacts_path}/report.md` describing:
-   - What was implemented
-   - How the solution was tested
-   - The biggest issues or challenges encountered
+### [ ] Step: Backend Implementation — Interests API & Prompts
+
+Implement backend support for interest summarization and prompt updates:
+- Add `POST /api/interests/from-usage` with request/response models.
+- Implement `LLMOrchestrator.summarize_interests_from_usage` and wire the new route.
+- Extend `AnalyzeRequest` and `PromptBuilder.build_layer4_prompt` to accept interest metadata and blocklists.
+- Update tests (e.g., `test_prompt_builder.py`) to cover the new prompt behavior.
+
+### [ ] Step: Integration & Verification
+
+Wire frontend and backend together and verify end‑to‑end behavior:
+- From the sidepanel, call the new interests API after analyses and update stored topics.
+- Pass interest metadata/blocklists into `/api/analyze` as needed.
+- Run frontend lint/typecheck and backend tests.
+- Perform manual QA for all flows (level selection, profile management, interests, wordbook, deletion, empty states).
