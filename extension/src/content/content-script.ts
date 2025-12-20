@@ -254,13 +254,10 @@ document.addEventListener('mouseup', () => {
 });
 
 document.addEventListener('dblclick', () => {
-  const selection = window.getSelection();
-  const text = selection?.toString().trim();
-
-  // Double-click is treated as strong intent, no length limit
-  if (text && text.length > 0) {
-    sendSelection(buildContextPayload(text, 'double-click'));
-  }
+  // For consistency with the floating button UX, a double-click now
+  // only updates the selection + button position. The user explicitly
+  // chooses whether to start analysis by clicking "LexiLens This".
+  showSelectionButtonForCurrentSelection();
 });
 
 // Hide the floating button when the user starts a new interaction that
