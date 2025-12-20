@@ -212,7 +212,6 @@ export function useStreamingAnalysis() {
           body: JSON.stringify({
             word: request.word,
             context: request.context,
-            lexical_base_word: request.lexicalBaseWord,
             page_type: request.pageType,
             learning_history: request.learningHistory,
             english_level: request.englishLevel,

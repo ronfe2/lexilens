@@ -100,17 +100,10 @@ class LLMOrchestrator:
         word: str,
         context: str,
         learning_history: list[str] | None = None,
-        english_level: str | None = None,
-        lexical_base_word: str | None = None,
+        english_level: str | None = None
     ) -> Layer4Response:
-        # For lexical-map/related-nodes, prefer a shorter, normalized base word
-        # when the frontend provides one (e.g. extracted from a full sentence
-        # like the Epstein example). This keeps the lexical map focused on the
-        # same keyword that the user sees in the UI.
-        target_word = lexical_base_word or word
-
         system_prompt, user_prompt = self.prompt_builder.build_layer4_prompt(
-            target_word,
+            word,
             context,
             learning_history,
             english_level,
@@ -154,7 +147,6 @@ class LLMOrchestrator:
         context = request.context
         learning_history = request.learning_history or []
         english_level = request.english_level
-        lexical_base_word = request.lexical_base_word
 
         try:
             full_layer1_content = ""
@@ -180,7 +172,6 @@ class LLMOrchestrator:
                     context,
                     learning_history,
                     english_level,
-                    lexical_base_word,
                 )
             )
 

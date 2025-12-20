@@ -9,14 +9,6 @@ from pydantic import BaseModel, Field
 class AnalyzeRequest(BaseModel):
     word: str = Field(..., description="Selected word or phrase to analyze")
     context: str = Field(..., description="Full sentence or paragraph containing the word")
-    lexical_base_word: Optional[str] = Field(
-        None,
-        description=(
-            "Optional normalized base word used specifically for lexical map / "
-            "related-words suggestions when the original selection is a long sentence "
-            "or phrase."
-        ),
-    )
     page_type: Optional[str] = Field(
         None,
         description="Type of page: 'news', 'academic', 'social', 'email', etc."
