@@ -184,12 +184,6 @@ function App() {
     (data: any) => {
       if (!data?.word || !data?.context) return;
 
-      // Selection trigger indicates how strong the user's intent is.
-      // - 'selection' (mouseup): light intent → show floating button first.
-      // - 'double-click' / undefined: strong intent (context menu or
-      //   restored selection) → start immediately.
-      const trigger: 'selection' | 'double-click' | undefined = data.trigger;
-
       const normalizedWord = String(data.word).trim();
       const normalizedContext = String(data.context).trim();
 
@@ -217,23 +211,9 @@ function App() {
         context: data.context,
         timestamp: Date.now(),
       });
-
-      // Decide whether to start immediately or wait for explicit confirmation
-      // via the bottom floating "LexiLens This" button.
-      const shouldAutoRun =
-        trigger === 'double-click' || typeof trigger === 'undefined';
-
-      if (shouldAutoRun) {
-        setPendingRequest(null);
-        // Fire-and-forget streaming analysis
-        void startAnalysis(request);
-        // In parallel, ask the backend to summarize/update interest topics
-        updateInterestsFromUsage(request);
-      } else {
-        // Light intent selection: keep the request pending and let the user
-        // confirm via the floating button.
-        setPendingRequest(request);
-      }
+      // 在侧边栏打开的情况下，无论是单击选取还是双击（或其他方式）
+      // 统一只记录本次请求，并通过底部的 "LexiLens This" 按钮显式启动分析。
+      setPendingRequest(request);
     },
     [
       learningWords,
@@ -243,7 +223,6 @@ function App() {
       topics,
       blockedTitles,
       updateInterestsFromUsage,
-      setView,
     ],
   );
 
