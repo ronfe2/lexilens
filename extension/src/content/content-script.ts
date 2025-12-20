@@ -283,7 +283,6 @@ document.addEventListener(
   },
   true,
 );
-
 chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
   // Allow the background script (e.g. from a context menu click) to ask the
   // content script to send the current selection through the normal pipeline.

@@ -30,9 +30,6 @@ function App() {
 
   const [view, setView] = useState<'coach' | 'profile'>('coach');
   const [isLevelDialogOpen, setIsLevelDialogOpen] = useState(false);
-  const [pendingRequest, setPendingRequest] = useState<AnalysisRequest | null>(
-    null,
-  );
 
   const lastSelectionRef = useRef<AnalysisRequest | null>(null);
 
@@ -169,16 +166,6 @@ function App() {
     [topics, blockedTitles, addOrUpdateFromServer],
   );
 
-  const handleRunPending = useCallback(() => {
-    if (!pendingRequest) return;
-
-    // Starting a new analysis will automatically cancel any in-flight
-    // streams via useStreamingAnalysis.
-    void startAnalysis(pendingRequest);
-    updateInterestsFromUsage(pendingRequest);
-    setPendingRequest(null);
-  }, [pendingRequest, startAnalysis, updateInterestsFromUsage]);
-
   const handleSelection = useCallback(
     (data: any) => {
       if (!data?.word || !data?.context) return;
@@ -208,9 +195,10 @@ function App() {
 
       lastSelectionRef.current = request;
 
-       // Whenever a new selection comes in, ensure the main coach view is
-       // visible so the user can see the floating button or the analysis.
-       setView('coach');
+      // Whenever a new selection comes in with explicit LexiLens intent
+      // (e.g. floating button click or context menu), ensure the main
+      // coach view is visible so the user can see the explanation.
+      setView('coach');
 
       // Record into learning history for personalization
       addEntry({
@@ -218,9 +206,12 @@ function App() {
         context: data.context,
         timestamp: Date.now(),
       });
-      // 在侧边栏打开的情况下，无论是单击选取还是双击（或其他方式）
-      // 统一只记录本次请求，并通过底部的 "LexiLens This" 按钮显式启动分析。
-      setPendingRequest(request);
+
+      // Explicit LexiLens triggers (context menu, floating button under
+      // selection, or restored selection from background) should start
+      // analysis immediately.
+      void startAnalysis(request);
+      updateInterestsFromUsage(request);
     },
     [
       learningWords,
@@ -244,25 +235,9 @@ function App() {
       }
 
       if (response?.selection) {
-        // Always record the last selection so the floating button can
-        // appear, keeping behavior consistent while the sidepanel is open.
+        // When the side panel is opened with a remembered selection
+        // (e.g. via context menu), immediately start analysis once.
         handleSelection(response.selection);
-
-        // If the background indicates that this selection came from a
-        // context menu click while the side panel was closed, we should
-        // automatically start analysis once on open (no extra click).
-        if (response.autoRun) {
-          setTimeout(() => {
-            setPendingRequest((current) => {
-              if (!current) return current;
-
-              void startAnalysis(current);
-              updateInterestsFromUsage(current);
-
-              return null;
-            });
-          }, 0);
-        }
       }
     });
 
@@ -278,7 +253,7 @@ function App() {
     return () => {
       chrome.runtime.onMessage.removeListener(listener);
     };
-  }, [handleSelection, startAnalysis, updateInterestsFromUsage]);
+  }, [handleSelection]);
 
   const handleRetry = () => {
     reset();
@@ -373,21 +348,6 @@ function App() {
               )}
             </div>
           </>
-        )}
-
-        {view === 'coach' && pendingRequest && (
-          <div className="fixed inset-x-0 bottom-4 flex justify-center pointer-events-none">
-            <button
-              type="button"
-              onClick={handleRunPending}
-              className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-lg shadow-indigo-500/40 hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-indigo-50 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:ring-offset-gray-900"
-            >
-              <span>LexiLens This</span>
-              <span className="max-w-[120px] truncate text-[11px] text-indigo-100 dark:text-indigo-50/80">
-                “{pendingRequest.word}”
-              </span>
-            </button>
-          </div>
         )}
 
         <EnglishLevelDialog
