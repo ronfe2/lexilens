@@ -30,6 +30,9 @@ function App() {
 
   const [view, setView] = useState<'coach' | 'profile'>('coach');
   const [isLevelDialogOpen, setIsLevelDialogOpen] = useState(false);
+  const [pendingRequest, setPendingRequest] = useState<AnalysisRequest | null>(
+    null,
+  );
 
   const lastSelectionRef = useRef<AnalysisRequest | null>(null);
   const handleSelectionRef = useRef<(data: any) => void>();
@@ -167,9 +170,26 @@ function App() {
     [topics, blockedTitles, addOrUpdateFromServer],
   );
 
+  const handleRunPending = useCallback(() => {
+    if (!pendingRequest) return;
+
+    // Starting a new analysis will automatically cancel any in-flight
+    // streams via useStreamingAnalysis.
+    void startAnalysis(pendingRequest);
+    updateInterestsFromUsage(pendingRequest);
+    setPendingRequest(null);
+  }, [pendingRequest, startAnalysis, updateInterestsFromUsage]);
+
   const handleSelection = useCallback(
     (data: any) => {
       if (!data?.word || !data?.context) return;
+
+      // Selection trigger indicates how strong the user's intent is.
+      // - 'selection' (mouseup): light intent → show floating button first.
+      // - 'double-click' / undefined: strong intent (context menu or
+      //   restored selection) → start immediately.
+      const trigger: 'selection' | 'double-click' | undefined = data.trigger;
+
       const normalizedWord = String(data.word).trim();
       const normalizedContext = String(data.context).trim();
 
@@ -187,6 +207,10 @@ function App() {
 
       lastSelectionRef.current = request;
 
+       // Whenever a new selection comes in, ensure the main coach view is
+       // visible so the user can see the floating button or the analysis.
+       setView('coach');
+
       // Record into learning history for personalization
       addEntry({
         word: data.word,
@@ -194,10 +218,22 @@ function App() {
         timestamp: Date.now(),
       });
 
-      // Fire-and-forget streaming analysis
-      void startAnalysis(request);
-      // In parallel, ask the backend to summarize/update interest topics
-      updateInterestsFromUsage(request);
+      // Decide whether to start immediately or wait for explicit confirmation
+      // via the bottom floating "LexiLens This" button.
+      const shouldAutoRun =
+        trigger === 'double-click' || typeof trigger === 'undefined';
+
+      if (shouldAutoRun) {
+        setPendingRequest(null);
+        // Fire-and-forget streaming analysis
+        void startAnalysis(request);
+        // In parallel, ask the backend to summarize/update interest topics
+        updateInterestsFromUsage(request);
+      } else {
+        // Light intent selection: keep the request pending and let the user
+        // confirm via the floating button.
+        setPendingRequest(request);
+      }
     },
     [
       learningWords,
@@ -207,6 +243,7 @@ function App() {
       topics,
       blockedTitles,
       updateInterestsFromUsage,
+      setView,
     ],
   );
 
@@ -339,6 +376,21 @@ function App() {
               )}
             </div>
           </>
+        )}
+
+        {view === 'coach' && pendingRequest && (
+          <div className="fixed inset-x-0 bottom-4 flex justify-center pointer-events-none">
+            <button
+              type="button"
+              onClick={handleRunPending}
+              className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-lg shadow-indigo-500/40 hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-indigo-50 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:ring-offset-gray-900"
+            >
+              <span>LexiLens This</span>
+              <span className="max-w-[120px] truncate text-[11px] text-indigo-100 dark:text-indigo-50/80">
+                “{pendingRequest.word}”
+              </span>
+            </button>
+          </div>
         )}
 
         <EnglishLevelDialog

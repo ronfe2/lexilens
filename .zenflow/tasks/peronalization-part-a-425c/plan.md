@@ -125,3 +125,8 @@ Journalists received a completely redacted report from the government.
 <!-- chat-id: 5441f411-8090-495a-88a3-127ce28a8f47 -->
 
 现在兴趣领域需要在首次安装时，加一些默认的兴趣领域，比如足球，北京房产，大模型，这个之前曾实现过，但现在似乎没有了
+
+### [x] Step: 底部 floating 按钮
+<!-- chat-id: 5c4a1f17-4dc6-4450-911d-2bac48c6879d -->
+
+现在侧边栏打开的情况下，用户重新选取词汇，是自动开始分析解释，预期是在底部悬浮一个 LexiLens This 的按钮，用户点击后再开启（这个逻辑之前实现过，但现在被改没了）
