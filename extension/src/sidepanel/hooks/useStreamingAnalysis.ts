@@ -56,6 +56,7 @@ function parseSSEEvent(rawEvent: string): SSEEvent | null {
 export function useStreamingAnalysis() {
   const {
     setCurrentWord,
+    setCurrentContext,
     setAnalysisResult,
     updateAnalysisLayer,
     setLoading,
@@ -82,6 +83,8 @@ export function useStreamingAnalysis() {
       controllerRef.current = controller;
 
       setCurrentWord(request.word);
+      // Store the full context for UI preview under the headword
+      setCurrentContext(request.context);
       setError(null);
       setLoading(true);
 
@@ -211,6 +214,7 @@ export function useStreamingAnalysis() {
             context: request.context,
             page_type: request.pageType,
             learning_history: request.learningHistory,
+            english_level: request.englishLevel,
             url: request.url,
           }),
           signal: controller.signal,
@@ -277,6 +281,7 @@ export function useStreamingAnalysis() {
     },
     [
       setCurrentWord,
+      setCurrentContext,
       setAnalysisResult,
       updateAnalysisLayer,
       setLoading,

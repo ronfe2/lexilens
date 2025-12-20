@@ -12,6 +12,53 @@ type SelectionTrigger = 'selection' | 'double-click';
 
 let selectedText = '';
 let selectedContext = '';
+let imageOverlayElement: HTMLDivElement | null = null;
+
+function showImageOverlay(imageUrl: string) {
+  if (!imageUrl) return;
+
+  if (imageOverlayElement) {
+    const img = imageOverlayElement.querySelector('img');
+    if (img) {
+      img.src = imageUrl;
+    }
+    if (!document.body.contains(imageOverlayElement)) {
+      document.body.appendChild(imageOverlayElement);
+    }
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'lexilens-image-overlay';
+  overlay.style.position = 'fixed';
+  overlay.style.inset = '0';
+  overlay.style.zIndex = '2147483647';
+  overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+  overlay.style.display = 'flex';
+  overlay.style.alignItems = 'center';
+  overlay.style.justifyContent = 'center';
+  overlay.style.cursor = 'zoom-out';
+
+  const img = document.createElement('img');
+  img.src = imageUrl;
+  img.alt = '';
+  img.style.maxWidth = '90vw';
+  img.style.maxHeight = '90vh';
+  img.style.boxShadow = '0 10px 40px rgba(0,0,0,0.5)';
+  img.style.borderRadius = '12px';
+  img.style.backgroundColor = '#ffffff';
+
+  overlay.appendChild(img);
+
+  overlay.addEventListener('click', () => {
+    if (overlay.parentNode) {
+      overlay.parentNode.removeChild(overlay);
+    }
+  });
+
+  imageOverlayElement = overlay;
+  document.body.appendChild(overlay);
+}
 
 function buildContextPayload(text: string, trigger: SelectionTrigger) {
   const pageText = document.body.innerText || '';
@@ -88,9 +135,9 @@ document.addEventListener('dblclick', () => {
   }
 });
 
-// Allow the background script (e.g. from a context menu click) to ask the
-// content script to send the current selection through the normal pipeline.
 chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
+  // Allow the background script (e.g. from a context menu click) to ask the
+  // content script to send the current selection through the normal pipeline.
   if (message?.type === 'LEXILENS_CONTEXT_MENU') {
     const selection = window.getSelection();
     const text = selection?.toString().trim();
@@ -98,5 +145,9 @@ chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
     if (text && text.length > 0) {
       sendSelection(buildContextPayload(text, 'double-click'));
     }
+  }
+
+  if (message?.type === 'LEXILENS_SHOW_LEXICAL_IMAGE' && typeof message.imageUrl === 'string') {
+    showImageOverlay(message.imageUrl);
   }
 });

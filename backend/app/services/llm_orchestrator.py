@@ -27,9 +27,14 @@ class LLMOrchestrator:
     async def generate_layer1_stream(
         self,
         word: str,
-        context: str
+        context: str,
+        english_level: str | None = None
     ) -> AsyncGenerator[str, None]:
-        system_prompt, user_prompt = self.prompt_builder.build_layer1_prompt(word, context)
+        system_prompt, user_prompt = self.prompt_builder.build_layer1_prompt(
+            word,
+            context,
+            english_level,
+        )
 
         full_content = ""
         async for chunk in self.client.stream(
@@ -94,10 +99,14 @@ class LLMOrchestrator:
         self,
         word: str,
         context: str,
-        learning_history: list[str] = None
+        learning_history: list[str] | None = None,
+        english_level: str | None = None
     ) -> Layer4Response:
         system_prompt, user_prompt = self.prompt_builder.build_layer4_prompt(
-            word, context, learning_history
+            word,
+            context,
+            learning_history,
+            english_level,
         )
 
         response = await self.client.complete_json(
@@ -137,10 +146,11 @@ class LLMOrchestrator:
         word = request.word
         context = request.context
         learning_history = request.learning_history or []
+        english_level = request.english_level
 
         try:
             full_layer1_content = ""
-            async for chunk in self.generate_layer1_stream(word, context):
+            async for chunk in self.generate_layer1_stream(word, context, english_level):
                 full_layer1_content += chunk
                 yield {
                     "event": "layer1_chunk",
@@ -157,7 +167,12 @@ class LLMOrchestrator:
             layer2_task = asyncio.create_task(self.generate_layer2(word, context))
             layer3_task = asyncio.create_task(self.generate_layer3(word, context))
             layer4_task = asyncio.create_task(
-                self.generate_layer4(word, context, learning_history)
+                self.generate_layer4(
+                    word,
+                    context,
+                    learning_history,
+                    english_level,
+                )
             )
 
             for task, event_name in [

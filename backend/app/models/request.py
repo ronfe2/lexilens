@@ -13,6 +13,10 @@ class AnalyzeRequest(BaseModel):
         None,
         description="Type of page: 'news', 'academic', 'social', 'email', etc."
     )
+    english_level: Optional[str] = Field(
+        None,
+        description="Learner CEFR level, e.g. 'B1'"
+    )
     learning_history: Optional[List[str]] = Field(
         default_factory=list,
         description="List of previously looked-up words for personalization"
@@ -22,11 +26,12 @@ class AnalyzeRequest(BaseModel):
         json_schema_extra = {
             "example": {
                 "word": "precarious",
-                "context": "The economic situation remains precarious despite recent improvements.",
-                "page_type": "news",
-                "learning_history": ["strategy", "implement"]
-            }
+            "context": "The economic situation remains precarious despite recent improvements.",
+            "page_type": "news",
+            "english_level": "B1",
+            "learning_history": ["strategy", "implement"]
         }
+    }
 
 
 class PronunciationRequest(BaseModel):

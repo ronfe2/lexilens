@@ -3,6 +3,8 @@ export interface AnalysisRequest {
   context: string;
   pageType?: 'news' | 'academic' | 'social' | 'email' | 'other';
   learningHistory?: string[];
+  // Learner's CEFR level (e.g. "B1") used for level-aware prompts
+  englishLevel?: string;
   url?: string;
 }
 

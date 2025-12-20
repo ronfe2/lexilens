@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Header from '../components/Header';
-import BehaviorPattern from '../components/BehaviorPattern';
-import LiveContexts from '../components/LiveContexts';
 import CommonMistakes from '../components/CommonMistakes';
 import CognitiveScaffolding from '../components/CognitiveScaffolding';
+import CoachSummary from '../components/CoachSummary';
 import EmptyState from '../components/EmptyState';
 import ErrorDisplay from '../components/ErrorDisplay';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -45,6 +44,7 @@ function App() {
         context: normalizedContext,
         pageType: data.pageType,
         learningHistory: learningWords,
+        englishLevel: profile.englishLevel,
         url: data.url,
       };
 
@@ -60,7 +60,7 @@ function App() {
       // Fire-and-forget streaming analysis
       void startAnalysis(request);
     },
-    [learningWords, addEntry, startAnalysis],
+    [learningWords, addEntry, startAnalysis, profile.englishLevel],
   );
 
   useEffect(() => {
@@ -101,7 +101,6 @@ function App() {
 
   const hasAnalysis =
     !!analysisResult?.layer1 ||
-    !!analysisResult?.layer2 ||
     !!analysisResult?.layer3 ||
     !!analysisResult?.layer4;
 
@@ -114,7 +113,7 @@ function App() {
         className="h-full w-full flex flex-col"
       >
         <div className="px-6 pt-4 pb-2">
-          <UserProfileCard profile={profile} />
+          <UserProfileCard profile={profile} theme={theme} onToggleTheme={toggleTheme} />
         </div>
 
         {(!currentWord && !hasAnalysis && !isLoading && !error) ? (
@@ -126,8 +125,11 @@ function App() {
             <Header
               word={analysisResult?.word || currentWord || ''}
               pronunciation={analysisResult?.pronunciation}
-              theme={theme}
-              onToggleTheme={toggleTheme}
+              definition={analysisResult?.layer1?.definition}
+              onAddToWordlistClick={() => {
+                // eslint-disable-next-line no-console
+                console.log('[LexiLens] Add to wordlist clicked (coming soon)');
+              }}
             />
 
             <div className="flex-1 overflow-y-auto space-y-1 pb-4">
@@ -135,23 +137,21 @@ function App() {
                 <ErrorDisplay message={error} onRetry={handleRetry} />
               ) : (
                 <>
-                  {analysisResult?.layer1 && (
-                    <BehaviorPattern data={analysisResult.layer1} />
-                  )}
-
-                  {analysisResult?.layer2 && (
-                    <LiveContexts contexts={analysisResult.layer2} />
-                  )}
-
-                  {analysisResult?.layer3 && (
-                    <CommonMistakes mistakes={analysisResult.layer3} />
-                  )}
+                  <CoachSummary
+                    word={analysisResult?.word || currentWord || ''}
+                    personalizedTip={analysisResult?.layer4?.personalizedTip}
+                    profile={profile}
+                  />
 
                   {analysisResult?.layer4 && (
                     <CognitiveScaffolding
                       data={analysisResult.layer4}
                       word={analysisResult.word || currentWord || ''}
                     />
+                  )}
+
+                  {analysisResult?.layer3 && (
+                    <CommonMistakes mistakes={analysisResult.layer3} />
                   )}
 
                   {isLoading && (

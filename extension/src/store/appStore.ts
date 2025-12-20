@@ -3,11 +3,13 @@ import type { AnalysisResult } from '../shared/types';
 
 interface AppState {
   currentWord: string | null;
+  currentContext: string | null;
   analysisResult: AnalysisResult | null;
   isLoading: boolean;
   error: string | null;
 
   setCurrentWord: (word: string) => void;
+  setCurrentContext: (context: string | null) => void;
   setAnalysisResult: (result: AnalysisResult | null) => void;
   updateAnalysisLayer: (layerKey: keyof AnalysisResult, data: any) => void;
   setLoading: (loading: boolean) => void;
@@ -17,11 +19,14 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   currentWord: null,
+  currentContext: null,
   analysisResult: null,
   isLoading: false,
   error: null,
 
   setCurrentWord: (word) => set({ currentWord: word }),
+
+  setCurrentContext: (context) => set({ currentContext: context }),
 
   setAnalysisResult: (result) => set({ analysisResult: result }),
 
@@ -50,6 +55,7 @@ export const useAppStore = create<AppState>((set) => ({
   reset: () =>
     set({
       currentWord: null,
+      currentContext: null,
       analysisResult: null,
       isLoading: false,
       error: null,

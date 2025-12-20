@@ -242,6 +242,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'LEXILENS_SHOW_LEXICAL_IMAGE') {
+    try {
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+        const activeTab = tabs[0];
+        const targetTabId = activeTab?.id ?? null;
+
+        if (targetTabId == null) {
+          sendResponse({ success: false });
+          return;
+        }
+
+        try {
+          chrome.tabs.sendMessage(
+            targetTabId,
+            {
+              type: 'LEXILENS_SHOW_LEXICAL_IMAGE',
+              imageUrl: message.imageUrl,
+            },
+            () => {
+              const lastError = chrome.runtime.lastError;
+              if (lastError) {
+                console.warn(
+                  'Failed to forward lexical image overlay message to content script',
+                  lastError,
+                );
+                sendResponse({ success: false });
+                return;
+              }
+
+              sendResponse({ success: true });
+            },
+          );
+        } catch (err) {
+          console.warn('Error sending lexical image overlay message to content script', err);
+          sendResponse({ success: false });
+        }
+      });
+    } catch (err) {
+      console.warn('Error querying active tab for lexical image overlay', err);
+      sendResponse({ success: false });
+    }
+
+    // Indicate that we'll respond asynchronously from inside tabs.query / tabs.sendMessage.
+    return true;
+  }
+
   sendResponse({ success: false });
   return false;
 });
