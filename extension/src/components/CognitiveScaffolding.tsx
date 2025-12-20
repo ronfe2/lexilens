@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Lightbulb, ArrowRight } from 'lucide-react';
 import type { CognitiveScaffolding as CognitiveScaffoldingType } from '../shared/types';
 import { API_URL } from '../shared/constants';
-import { createShortLabel } from '../shared/utils';
+import { createShortLabel, extractKeywordFromText, isLongEntry } from '../shared/utils';
 
 interface CognitiveScaffoldingProps {
   data: CognitiveScaffoldingType;
@@ -25,6 +25,15 @@ const relationshipConfig = {
 
 export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldingProps) {
   const baseWord = word || 'Word';
+
+  // For long selections (sentences/clauses), pick a single keyword as the
+  // Lexical Map中心节点，而不是整句都放进去。
+  const displayBaseWord = (() => {
+    if (!isLongEntry(baseWord)) return baseWord;
+    const keyword = extractKeywordFromText(baseWord);
+    if (keyword) return keyword;
+    return createShortLabel(baseWord, { maxWords: 3, maxChars: 24 });
+  })();
 
   const size = 220;
   const center = size / 2;
@@ -77,7 +86,7 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
     const related = data.relatedWords[selectedIndex];
     if (!related) return;
 
-    const base = baseWord;
+    const base = displayBaseWord;
 
     setImageState({
       url: null,
@@ -176,7 +185,7 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
                 transition={{ duration: 0.3 }}
                 className="px-4 py-2 rounded-full bg-primary-500/90 text-white text-sm font-semibold shadow-lg max-w-[200px] text-center"
               >
-                {baseWord}
+                {displayBaseWord}
               </motion.div>
             </div>
 
@@ -221,7 +230,8 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
         <div className="space-y-3">
           {selectedIndex === null ? (
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              点击上面的词汇节点，查看与 <span className="font-semibold">{baseWord}</span>{' '}
+              点击上面的词汇节点，查看与{' '}
+              <span className="font-semibold">{displayBaseWord}</span>{' '}
               的关键区别和典型使用场景。
             </p>
           ) : (
@@ -286,7 +296,7 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
                         <div className="mt-1 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/60">
                           <img
                             src={imageState.url}
-                            alt={`Visual explanation of the difference between ${baseWord} and ${related.word}`}
+                            alt={`Visual explanation of the difference between ${displayBaseWord} and ${related.word}`}
                             className="w-full h-auto object-contain cursor-zoom-in"
                             onClick={() => {
                               if (!imageState.url) return;
@@ -381,7 +391,7 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
             </button>
             <img
               src={imageState.url}
-              alt={`Visual explanation of the difference between ${imageState.baseWord ?? baseWord} and ${imageState.relatedWord ?? ''}`}
+              alt={`Visual explanation of the difference between ${imageState.baseWord ?? displayBaseWord} and ${imageState.relatedWord ?? ''}`}
               className="max-h-[80vh] w-full rounded-lg object-contain shadow-xl"
             />
           </div>
