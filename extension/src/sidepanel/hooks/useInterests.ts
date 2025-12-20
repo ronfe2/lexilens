@@ -100,17 +100,18 @@ export function useInterests(): UseInterestsResult {
         [STORAGE_KEYS.INTERESTS, STORAGE_KEYS.INTERESTS_BLOCKLIST],
         (result) => {
           const storedRaw = result?.[STORAGE_KEYS.INTERESTS];
-          const storedTopics = sanitizeTopics(storedRaw);
-
           const storedBlocked = result?.[STORAGE_KEYS.INTERESTS_BLOCKLIST];
+
+          const storedTopics = sanitizeTopics(storedRaw);
           const blocked: string[] = Array.isArray(storedBlocked)
             ? storedBlocked.filter(
                 (t): t is string => typeof t === 'string' && t.trim().length > 0,
               )
             : [];
 
-          // Seed demo interests if nothing stored yet.
-          if (!storedTopics.length) {
+          // Seed demo interests only on first install:
+          // when there is no stored value for INTERESTS yet.
+          if (typeof storedRaw === 'undefined') {
             setTopics(DEMO_INTERESTS);
             setBlockedTitles(blocked);
             chrome.storage?.local.set({

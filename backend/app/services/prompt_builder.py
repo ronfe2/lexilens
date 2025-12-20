@@ -57,7 +57,12 @@ For this learner, write in very simple English:
 - Use high-frequency A1–A2 vocabulary and short sentences.
 - Write 1–2 sentences in total, ideally no more than 35 words.
 - Avoid abstract nouns, idioms, and long subordinate clauses.
-- If the headword is advanced, explain it using everyday actions and concrete situations."""
+- Avoid meta-words like "formal", "official", "legal", "academic", "government",
+  "confidential", "revealed", "secret", "scandal".
+- Do NOT mention any real people, countries, or news events (for example: no
+  famous cases, crimes, or political stories).
+- If the headword is advanced, explain it using everyday actions and concrete
+  situations (for example: school, family, simple work or study scenes)."""
             elif band == "intermediate":
                 level_note += """
 For this learner, use clear, natural English at about B1–B2 level:
@@ -150,6 +155,9 @@ When creating WRONG and CORRECT example sentences:
 - Use simple A1–A2 vocabulary and grammar.
 - Prefer active voice and short, clear sentences.
 - Avoid rare words or heavy academic topics.
+- Keep scenes very simple (school, family, daily life, basic messages).
+- Do NOT use examples about government, law, court cases, politics, or scandals.
+- Do NOT mention real people, brands, or specific news events.
 
 For the Chinese explanations ("why"):
 - Use short, friendly sentences in everyday Chinese.
@@ -236,7 +244,13 @@ For this learner:
 - Choose related words that are high-frequency and not much more difficult than the headword.
 - Prefer everyday words instead of rare academic, legal, or technical terms.
 - Make "difference" and "when_to_use" explanations short and simple, using basic grammar and vocabulary.
-- If the headword itself is very advanced, compare it to simpler everyday words and focus on concrete scenes."""
+- Write the "difference" and "when_to_use" fields mainly in **Simplified Chinese**,
+  only keeping the headwords themselves and very short phrases in English.
+- Use neutral, everyday scenes (school, home, simple work). Do NOT use examples
+  about government, law, crime, or sensitive real-world events.
+- Do NOT mention any real people's names or specific scandals/cases.
+- If the headword itself is very advanced, compare it to simpler everyday words
+  and focus on concrete scenes."""
             elif band == "intermediate":
                 level_note += """
 

@@ -120,3 +120,8 @@ Correct
 Journalists received a completely redacted report from the government.
 
 上面所有的解释内容（包括 Lexicon Map 的选词），对于 A1 的水平来说都太难了，解决这个问题
+
+### [x] Step: 默认兴趣领域
+<!-- chat-id: 5441f411-8090-495a-88a3-127ce28a8f47 -->
+
+现在兴趣领域需要在首次安装时，加一些默认的兴趣领域，比如足球，北京房产，大模型，这个之前曾实现过，但现在似乎没有了
