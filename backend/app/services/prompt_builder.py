@@ -143,10 +143,15 @@ mention CEFR or levels explicitly in your final answer."""
 	learners understand "{word}" better.
 
 For each related word, provide:
-- word: [related word]
+- word: [related word or short phrase ONLY; maximum 1–3 words, never a full sentence]
 - relationship: [synonym/antonym/narrower/broader/collocate]
 - difference: [how it differs from "{word}"]
 - when_to_use: [usage guidance]
+
+Important formatting rules for the "word" field:
+- It must be concise enough to fit inside a small node label in a lexical map.
+- Do NOT copy the entire context sentence or write a full definition here.
+- Do NOT include Chinese text in the "word" field.
 
 	Personalized coaching (Chinese):
 	- Always include a "personalized" field in the JSON response.

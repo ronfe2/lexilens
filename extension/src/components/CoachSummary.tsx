@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import type { UserProfile } from '../sidepanel/hooks/useUserProfile';
+import { isLongEntry } from '../shared/utils';
 
 interface CoachSummaryProps {
   word: string;
@@ -31,6 +32,8 @@ export default function CoachSummary({
     ? `${profile.englishLevel} · ${levelLabel}`
     : profile.englishLevel;
 
+  const targetLabel = isLongEntry(word) ? '这句话' : word;
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
@@ -53,7 +56,7 @@ export default function CoachSummary({
             </span>{' '}
             水平，下面结合你熟悉的场景（比如足球比赛、在北京买房或大模型相关的例子），来解读{' '}
             <span className="font-semibold text-gray-800 dark:text-gray-100">
-              {word}
+              {targetLabel}
             </span>{' '}
             的用法和感觉：
           </p>

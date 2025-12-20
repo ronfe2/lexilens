@@ -1,0 +1,14 @@
+Long Entry Optimization
+=======================
+
+- Header headword is now shortened using a shared utility so that very long selections (sentences/paragraphs) do not blow up the side panel height, while keeping the full text in a tooltip.
+- The 解读 intro sentence now refers to long selections generically as “这句话” instead of inserting the full text when the selection exceeds a few words.
+- Lexical Map nodes now use a concise label derived from each related word (first few words/characters with ellipsis) instead of rendering an entire long sentence.
+- Added shared helpers in `extension/src/shared/utils.ts` (`isLongEntry`, `createShortLabel`) to centralize long‑entry heuristics.
+- Updated the backend layer‑4 prompt (`backend/app/services/prompt_builder.py`) so the LLM keeps `related_words[*].word` as a short word/phrase (1–3 words) suitable for node labels and never returns full sentences there.
+
+Checks:
+- Ran `pnpm install --frozen-lockfile` in `extension/`.
+- Ran `pnpm lint` in `extension/` (only existing `any` warnings remain, no new errors).
+- Ran `python -m compileall backend/app` to validate backend syntax.
+

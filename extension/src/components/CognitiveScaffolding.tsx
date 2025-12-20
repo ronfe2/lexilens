@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Lightbulb, ArrowRight } from 'lucide-react';
 import type { CognitiveScaffolding as CognitiveScaffoldingType } from '../shared/types';
 import { API_URL } from '../shared/constants';
+import { createShortLabel } from '../shared/utils';
 
 interface CognitiveScaffoldingProps {
   data: CognitiveScaffoldingType;
@@ -24,6 +25,7 @@ const relationshipConfig = {
 
 export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldingProps) {
   const baseWord = word || 'Word';
+  const displayBaseWord = createShortLabel(baseWord, { maxWords: 6, maxChars: 40 });
 
   const size = 220;
   const center = size / 2;
@@ -38,6 +40,8 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
     related,
     x: positions[index].x,
     y: positions[index].y,
+    // Use a concise label so long phrases/sentences do not blow up node size.
+    label: createShortLabel(related.word, { maxWords: 4, maxChars: 32 }),
   }));
 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -173,7 +177,7 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
                 transition={{ duration: 0.3 }}
                 className="px-4 py-2 rounded-full bg-primary-500/90 text-white text-sm font-semibold shadow-lg"
               >
-                {baseWord}
+                {displayBaseWord}
               </motion.div>
             </div>
 
@@ -203,7 +207,7 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
                     }`}
                   >
                     <p className="text-xs font-semibold text-gray-900 dark:text-white">
-                      {node.related.word}
+                      {node.label}
                     </p>
                     <p className={`text-[10px] ${config?.color ?? 'text-gray-500'} mt-0.5`}>
                       {config?.label ?? node.related.relationship}
@@ -218,7 +222,8 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
         <div className="space-y-3">
           {selectedIndex === null ? (
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              点击上面的词汇节点，查看与 <span className="font-semibold">{baseWord}</span>{' '}
+              点击上面的词汇节点，查看与{' '}
+              <span className="font-semibold">{displayBaseWord}</span>{' '}
               的关键区别和典型使用场景。
             </p>
           ) : (
