@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Lightbulb, ArrowRight } from 'lucide-react';
 import type { CognitiveScaffolding as CognitiveScaffoldingType } from '../shared/types';
 import { API_URL } from '../shared/constants';
-import { createShortLabel, extractKeywordFromText, isLongEntry } from '../shared/utils';
+import { createShortLabel, getLexicalBaseWord } from '../shared/utils';
 
 interface CognitiveScaffoldingProps {
   data: CognitiveScaffoldingType;
@@ -24,16 +24,8 @@ const relationshipConfig = {
 } as const;
 
 export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldingProps) {
-  const baseWord = word || 'Word';
-
-  // For long selections (sentences/clauses), pick a single keyword as the
-  // Lexical Map中心节点，而不是整句都放进去。
-  const displayBaseWord = (() => {
-    if (!isLongEntry(baseWord)) return baseWord;
-    const keyword = extractKeywordFromText(baseWord);
-    if (keyword) return keyword;
-    return createShortLabel(baseWord, { maxWords: 3, maxChars: 24 });
-  })();
+  const rawBaseWord = word || 'Word';
+  const displayBaseWord = getLexicalBaseWord(rawBaseWord) || rawBaseWord;
 
   const size = 220;
   const center = size / 2;

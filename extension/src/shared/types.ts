@@ -1,6 +1,8 @@
 export interface AnalysisRequest {
   word: string;
   context: string;
+  // Optional: shorter base word used specifically for Lexical Map / related nodes
+  lexicalBaseWord?: string;
   pageType?: 'news' | 'academic' | 'social' | 'email' | 'other';
   learningHistory?: string[];
   // Learner's CEFR level (e.g. "B1") used for level-aware prompts

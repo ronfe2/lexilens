@@ -264,3 +264,25 @@ export function extractKeywordFromText(text: string): string | null {
   // Use the original casing as it appeared in the sentence.
   return best.original || null;
 }
+
+/**
+ * Derive the "lexical base word" for features like Lexical Map:
+ * - If the selection本身已经是一个短词/短语，就直接用它
+ * - 如果是整句或很长的短语，就从中挑一个代表性的关键词
+ */
+export function getLexicalBaseWord(raw: string): string {
+  const base = raw.trim();
+  if (!base) return '';
+
+  if (!isLongEntry(base)) {
+    return base;
+  }
+
+  const keyword = extractKeywordFromText(base);
+  if (keyword) {
+    return keyword;
+  }
+
+  // Fallback: still保证比较短的前缀短语
+  return createShortLabel(base, { maxWords: 3, maxChars: 24 });
+}

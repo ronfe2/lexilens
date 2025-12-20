@@ -14,6 +14,7 @@ import { useLearningHistory } from './hooks/useLearningHistory';
 import { useTheme } from './hooks/useTheme';
 import { useUserProfile } from './hooks/useUserProfile';
 import type { AnalysisRequest } from '../shared/types';
+import { getLexicalBaseWord } from '../shared/utils';
 
 function App() {
   const { currentWord, analysisResult, isLoading, error, reset } = useAppStore();
@@ -39,9 +40,12 @@ function App() {
         return;
       }
 
+      const lexicalBaseWord = getLexicalBaseWord(normalizedWord);
+
       const request: AnalysisRequest = {
         word: normalizedWord,
         context: normalizedContext,
+        lexicalBaseWord,
         pageType: data.pageType,
         learningHistory: learningWords,
         englishLevel: profile.englishLevel,
