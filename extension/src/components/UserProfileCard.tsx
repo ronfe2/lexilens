@@ -1,4 +1,5 @@
 import { Moon, Sun, User } from 'lucide-react';
+import { getLevelConfig } from '../sidepanel/hooks/useUserProfile';
 import type { UserProfile } from '../sidepanel/hooks/useUserProfile';
 import type { Theme } from '../sidepanel/hooks/useTheme';
 
@@ -7,27 +8,22 @@ interface UserProfileCardProps {
   className?: string;
   theme?: Theme;
   onToggleTheme?: () => void;
+  onOpenProfile?: () => void;
+  onLevelClick?: () => void;
 }
-
-const levelLabels: Record<UserProfile['englishLevel'], string> = {
-  A1: '入门',
-  A2: '基础',
-  B1: '中级',
-  B2: '中高级',
-  C1: '高级',
-  C2: '接近母语',
-};
 
 export default function UserProfileCard({
   profile,
   className = '',
   theme = 'light',
   onToggleTheme,
+  onOpenProfile,
+  onLevelClick,
 }: UserProfileCardProps) {
   const initial =
     (profile.nickname && profile.nickname.trim().charAt(0).toUpperCase()) || 'L';
 
-  const levelLabel = levelLabels[profile.englishLevel] ?? '';
+  const levelConfig = getLevelConfig(profile.englishLevel);
 
   return (
     <section
@@ -56,34 +52,51 @@ export default function UserProfileCard({
           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
             {profile.nickname}
           </p>
-          <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-indigo-50 dark:bg-indigo-900/40 px-2 py-0.5">
+          <button
+            type="button"
+            onClick={onLevelClick}
+            className="mt-1 inline-flex items-center gap-1 rounded-full bg-indigo-50 dark:bg-indigo-900/40 px-2 py-0.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 transition-colors"
+            aria-label="调整英语等级"
+          >
             <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-200">
-              {profile.englishLevel}
+              {levelConfig.label}
             </span>
-            {levelLabel && (
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                · 英语水平：{levelLabel}
-              </span>
-            )}
-          </div>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[9rem]">
+              · {levelConfig.ability}
+            </span>
+          </button>
         </div>
       </div>
 
-      {onToggleTheme && (
-        <button
-          type="button"
-          onClick={onToggleTheme}
-          className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          aria-label={`切换到${theme === 'dark' ? '浅色' : '深色'}模式`}
-          title="切换深浅模式"
-        >
-          {theme === 'dark' ? (
-            <Sun className="h-4 w-4 text-yellow-400" />
-          ) : (
-            <Moon className="h-4 w-4 text-blue-500" />
-          )}
-        </button>
-      )}
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {onOpenProfile && (
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label="打开个人信息页面"
+            title="个人信息"
+          >
+            <User className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+          </button>
+        )}
+
+        {onToggleTheme && (
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label={`切换到${theme === 'dark' ? '浅色' : '深色'}模式`}
+            title="切换深浅模式"
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-4 w-4 text-yellow-400" />
+            ) : (
+              <Moon className="h-4 w-4 text-blue-500" />
+            )}
+          </button>
+        )}
+      </div>
     </section>
   );
 }

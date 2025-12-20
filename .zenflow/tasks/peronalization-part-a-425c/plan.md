@@ -51,7 +51,8 @@ Save to `{@artifacts_path}/plan.md`. If the feature is trivial and doesn't warra
 
 ---
 
-### [ ] Step: Frontend Implementation — Profile & Interests
+### [x] Step: Frontend Implementation — Profile & Interests
+<!-- chat-id: 75f4da6c-2c5c-406a-93c7-7ae6905227eb -->
 
 Implement the sidepanel UI changes described in `spec.md`:
 - Update user profile model and English level selection (modal overlay, level descriptions).
@@ -59,7 +60,8 @@ Implement the sidepanel UI changes described in `spec.md`:
 - Implement interest cards and wordbook sections, backed by `chrome.storage.local`.
 - Ensure empty states and deletion flows are reflected correctly in the UI.
 
-### [ ] Step: Backend Implementation — Interests API & Prompts
+### [x] Step: Backend Implementation — Interests API & Prompts
+<!-- chat-id: 92d55714-67d8-48d1-ac38-1e86127983bd -->
 
 Implement backend support for interest summarization and prompt updates:
 - Add `POST /api/interests/from-usage` with request/response models.

@@ -55,6 +55,30 @@ export interface LearningHistoryEntry {
   context: string;
 }
 
+export interface InterestLink {
+  url: string;
+  title?: string;
+  lastUsedAt: number;
+}
+
+export interface InterestTopic {
+  id: string;
+  title: string;
+  summary: string;
+  links: InterestLink[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface WordbookEntry {
+  id: string;
+  word: string;
+  translation?: string;
+  example?: string;
+  stage: 1 | 2 | 3 | 4 | 5;
+  lastReviewedAt?: number;
+}
+
 export type MessageType =
   | 'WORD_SELECTED'
   | 'OPEN_SIDEPANEL'

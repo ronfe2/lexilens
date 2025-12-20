@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import Header from '../components/Header';
 import CommonMistakes from '../components/CommonMistakes';
@@ -13,6 +13,8 @@ import { useStreamingAnalysis } from './hooks/useStreamingAnalysis';
 import { useLearningHistory } from './hooks/useLearningHistory';
 import { useTheme } from './hooks/useTheme';
 import { useUserProfile } from './hooks/useUserProfile';
+import EnglishLevelDialog from '../components/EnglishLevelDialog';
+import ProfilePage from './ProfilePage';
 import type { AnalysisRequest } from '../shared/types';
 
 function App() {
@@ -20,7 +22,10 @@ function App() {
   const { words: learningWords, addEntry } = useLearningHistory();
   const { startAnalysis } = useStreamingAnalysis();
   const { theme, toggleTheme } = useTheme();
-  const { profile } = useUserProfile();
+  const { profile, updateProfile } = useUserProfile();
+
+  const [view, setView] = useState<'coach' | 'profile'>('coach');
+  const [isLevelDialogOpen, setIsLevelDialogOpen] = useState(false);
 
   const lastSelectionRef = useRef<AnalysisRequest | null>(null);
   const handleSelectionRef = useRef<(data: any) => void>();
@@ -112,10 +117,25 @@ function App() {
         className="h-full w-full flex flex-col"
       >
         <div className="px-6 pt-4 pb-2">
-          <UserProfileCard profile={profile} theme={theme} onToggleTheme={toggleTheme} />
+          <UserProfileCard
+            profile={profile}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onOpenProfile={() => setView('profile')}
+            onLevelClick={() => setIsLevelDialogOpen(true)}
+          />
         </div>
 
-        {(!currentWord && !hasAnalysis && !isLoading && !error) ? (
+        {view === 'profile' ? (
+          <div className="flex-1 overflow-y-auto">
+            <ProfilePage
+              profile={profile}
+              onUpdateProfile={updateProfile}
+              onBack={() => setView('coach')}
+              onLevelClick={() => setIsLevelDialogOpen(true)}
+            />
+          </div>
+        ) : (!currentWord && !hasAnalysis && !isLoading && !error) ? (
           <div className="flex-1 flex items-center justify-center px-6 pb-6">
             <EmptyState />
           </div>
@@ -169,6 +189,16 @@ function App() {
             </div>
           </>
         )}
+
+        <EnglishLevelDialog
+          isOpen={isLevelDialogOpen}
+          currentLevel={profile.englishLevel}
+          onSelect={(level) => {
+            updateProfile({ englishLevel: level });
+            setIsLevelDialogOpen(false);
+          }}
+          onClose={() => setIsLevelDialogOpen(false)}
+        />
       </motion.div>
     </div>
   );

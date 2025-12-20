@@ -5,6 +5,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from app.models.interests import InterestTopicPayload
+
 
 class AnalyzeRequest(BaseModel):
     word: str = Field(..., description="Selected word or phrase to analyze")
@@ -17,21 +19,36 @@ class AnalyzeRequest(BaseModel):
         None,
         description="Learner CEFR level, e.g. 'B1'"
     )
+    url: Optional[str] = Field(
+        None,
+        description="Full URL of the page where LexiLens was triggered",
+    )
     learning_history: Optional[List[str]] = Field(
         default_factory=list,
         description="List of previously looked-up words for personalization"
+    )
+    interests: Optional[list[InterestTopicPayload]] = Field(
+        default_factory=list,
+        description="Current interest topics used to personalize explanations",
+    )
+    blocked_titles: Optional[list[str]] = Field(
+        default_factory=list,
+        description="Interest titles that should NOT be mentioned",
     )
 
     class Config:
         json_schema_extra = {
             "example": {
                 "word": "precarious",
-            "context": "The economic situation remains precarious despite recent improvements.",
-            "page_type": "news",
-            "english_level": "B1",
-            "learning_history": ["strategy", "implement"]
+                "context": "The economic situation remains precarious despite recent improvements.",
+                "page_type": "news",
+                "url": "https://example.com/article",
+                "english_level": "B1",
+                "learning_history": ["strategy", "implement"],
+                "interests": [],
+                "blocked_titles": [],
+            }
         }
-    }
 
 
 class PronunciationRequest(BaseModel):

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
+import { getLevelConfig } from '../sidepanel/hooks/useUserProfile';
 import type { UserProfile } from '../sidepanel/hooks/useUserProfile';
 import { isLongEntry } from '../shared/utils';
 
@@ -8,15 +9,6 @@ interface CoachSummaryProps {
   personalizedTip?: string;
   profile: UserProfile;
 }
-
-const levelLabels: Record<UserProfile['englishLevel'], string> = {
-  A1: '入门',
-  A2: '基础',
-  B1: '中级',
-  B2: '中高级',
-  C1: '高级',
-  C2: '接近母语',
-};
 
 export default function CoachSummary({
   word,
@@ -27,10 +19,8 @@ export default function CoachSummary({
     return null;
   }
 
-  const levelLabel = levelLabels[profile.englishLevel] ?? '';
-  const levelDisplay = levelLabel
-    ? `${profile.englishLevel} · ${levelLabel}`
-    : profile.englishLevel;
+  const levelConfig = getLevelConfig(profile.englishLevel);
+  const levelDisplay = `${levelConfig.label} · ${levelConfig.ability}`;
 
   const targetLabel = isLongEntry(word) ? '这句话' : word;
 
@@ -54,7 +44,7 @@ export default function CoachSummary({
             <span className="font-semibold text-gray-800 dark:text-gray-100">
               {levelDisplay}
             </span>{' '}
-            水平，下面结合你熟悉的场景（比如足球比赛、在北京买房或大模型相关的例子），来解读{' '}
+            水平，下面会结合你日常会遇到的场景和内容偏好，来解读{' '}
             <span className="font-semibold text-gray-800 dark:text-gray-100">
               {targetLabel}
             </span>{' '}
