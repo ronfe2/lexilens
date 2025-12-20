@@ -5,6 +5,11 @@ console.log('LexiLens background service worker loaded');
 interface LastSelectionRecord {
   selection: AnalysisRequest;
   tabId?: number;
+  // Whether the side panel should automatically start analyzing this
+  // selection as soon as it opens. We set this when the user triggers
+  // LexiLens from the context menu while the side panel is currently
+  // closed.
+  autoRun?: boolean;
 }
 
 let lastSelection: LastSelectionRecord | null = null;
@@ -215,6 +220,12 @@ chrome.contextMenus?.onClicked.addListener((info, tab) => {
         url: info.pageUrl,
       },
       tabId: tab.id ?? undefined,
+      // When the side panel is currently closed, a context menu click
+      // should both open the panel and immediately start analyzing the
+      // selection. If the panel is already open, we still record the
+      // selection but let the side panel decide when to start via the
+      // floating button.
+      autoRun: !isSidepanelOpen,
     };
   }
 
@@ -282,15 +293,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // avoids replaying explanations when they switch tabs.
     const tabId = sender.tab?.id ?? activeTabId ?? null;
 
-    const selection =
+    const record =
       tabId != null &&
       lastSelection &&
       lastSelection.tabId != null &&
       lastSelection.tabId === tabId
-        ? lastSelection.selection
+        ? lastSelection
         : null;
 
-    sendResponse({ success: true, selection });
+    sendResponse({
+      success: true,
+      selection: record?.selection ?? null,
+      autoRun: record?.autoRun ?? false,
+    });
     return true;
   }
 
