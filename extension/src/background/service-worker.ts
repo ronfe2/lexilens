@@ -11,6 +11,51 @@ let lastSelection: LastSelectionRecord | null = null;
 let isSidepanelOpen = false;
 let activeTabId: number | null = null;
 
+function broadcastSidepanelState(open: boolean) {
+  try {
+    chrome.tabs.query({}, (tabs) => {
+      for (const tab of tabs) {
+        const tabId = tab.id;
+        if (tabId == null) continue;
+
+        try {
+          chrome.tabs.sendMessage(
+            tabId,
+            {
+              type: 'LEXILENS_SIDEPANEL_STATE',
+              open,
+            },
+            () => {
+              // Most tabs will not have our content script (e.g. chrome://),
+              // so ignore "Receiving end does not exist" noise.
+              const lastError = chrome.runtime.lastError;
+              if (
+                lastError &&
+                lastError.message &&
+                !lastError.message.includes('Receiving end does not exist')
+              ) {
+                console.debug(
+                  'LexiLens: failed to broadcast sidepanel state to tab',
+                  tabId,
+                  lastError,
+                );
+              }
+            },
+          );
+        } catch (err) {
+          console.debug(
+            'LexiLens: unexpected error broadcasting sidepanel state to tab',
+            tabId,
+            err,
+          );
+        }
+      }
+    });
+  } catch (err) {
+    console.warn('LexiLens: error querying tabs for sidepanel state broadcast', err);
+  }
+}
+
 // Ensure the side panel is wired to our extension action icon so users
 // can always open it manually if automatic opening ever fails.
 chrome.runtime.onInstalled.addListener(() => {
@@ -100,9 +145,11 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'sidepanel') return;
 
   isSidepanelOpen = true;
+   broadcastSidepanelState(true);
 
   port.onDisconnect.addListener(() => {
     isSidepanelOpen = false;
+    broadcastSidepanelState(false);
   });
 });
 

@@ -55,12 +55,13 @@ export interface LearningHistoryEntry {
   context: string;
 }
 
-export type MessageType = 
-  | 'WORD_SELECTED' 
-  | 'OPEN_SIDEPANEL' 
+export type MessageType =
+  | 'WORD_SELECTED'
+  | 'OPEN_SIDEPANEL'
   | 'ANALYSIS_COMPLETE'
   | 'SIDE_PANEL_READY'
-  | 'LEXILENS_CONTEXT_MENU';
+  | 'LEXILENS_CONTEXT_MENU'
+  | 'LEXILENS_SIDEPANEL_STATE';
 
 export interface Message {
   type: MessageType;
