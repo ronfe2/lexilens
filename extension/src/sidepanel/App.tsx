@@ -12,7 +12,7 @@ import { useAppStore } from '../store/appStore';
 import { useStreamingAnalysis } from './hooks/useStreamingAnalysis';
 import { useLearningHistory } from './hooks/useLearningHistory';
 import { useTheme } from './hooks/useTheme';
-import { useUserProfile } from './hooks/useUserProfile';
+import { useUserProfile, getCefrForPrompt } from './hooks/useUserProfile';
 import { useInterests } from './hooks/useInterests';
 import EnglishLevelDialog from '../components/EnglishLevelDialog';
 import ProfilePage from './ProfilePage';
@@ -178,7 +178,8 @@ function App() {
         context: normalizedContext,
         pageType: data.pageType,
         learningHistory: learningWords,
-        englishLevel: profile.englishLevel,
+        // Map UI level (e.g. "Starter", "KET") to a CEFR-style hint for the backend prompt.
+        englishLevel: getCefrForPrompt(profile.englishLevel),
         url: data.url,
         interests: topics,
         blockedTitles,

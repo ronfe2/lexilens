@@ -73,8 +73,17 @@ class LLMOrchestrator:
 
         return Layer2Response(contexts=contexts)
 
-    async def generate_layer3(self, word: str, context: str) -> Layer3Response:
-        system_prompt, user_prompt = self.prompt_builder.build_layer3_prompt(word, context)
+    async def generate_layer3(
+        self,
+        word: str,
+        context: str,
+        english_level: str | None = None,
+    ) -> Layer3Response:
+        system_prompt, user_prompt = self.prompt_builder.build_layer3_prompt(
+            word,
+            context,
+            english_level,
+        )
 
         response = await self.client.complete_json(
             prompt=user_prompt,
@@ -272,7 +281,13 @@ Return ONLY a JSON array of topic objects, without any surrounding explanation."
             logger.info(f"Layer 1 completed for '{word}'")
 
             layer2_task = asyncio.create_task(self.generate_layer2(word, context))
-            layer3_task = asyncio.create_task(self.generate_layer3(word, context))
+            layer3_task = asyncio.create_task(
+                self.generate_layer3(
+                    word,
+                    context,
+                    english_level,
+                )
+            )
             layer4_task = asyncio.create_task(
                 self.generate_layer4(
                     word,

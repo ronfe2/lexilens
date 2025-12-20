@@ -111,3 +111,17 @@ def test_layer4_prompt_includes_interests_and_blocklist_when_provided():
 
     # Blocklist guidance should be present
     assert "Never mention these blocked topics" in prompt
+
+
+def test_layer3_prompt_includes_level_guidance_for_beginner():
+    """Layer 3 prompt should adapt guidance when a low CEFR level is provided."""
+    _, prompt = PromptBuilder.build_layer3_prompt(
+        word="redacted",
+        context="The document was heavily redacted before publication.",
+        english_level="A1",
+    )
+
+    # CEFR level should be visible to the model
+    assert "A1" in prompt
+    # And beginner guidance should be present
+    assert "simple A1–A2 vocabulary" in prompt or "简单" in prompt
