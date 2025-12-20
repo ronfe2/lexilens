@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { BookmarkPlus, Volume2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { createShortLabel, truncateText } from '../shared/utils';
+import { truncateText } from '../shared/utils';
 
 interface HeaderProps {
   word: string;
@@ -16,7 +16,6 @@ interface HeaderProps {
 }
 
 const MAX_DEFINITION_PREVIEW_LENGTH = 160;
-const MAX_HEADWORD_DISPLAY_CHARS = 80;
 
 export default function Header({
   word,
@@ -27,11 +26,6 @@ export default function Header({
 }: HeaderProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isDefinitionExpanded, setIsDefinitionExpanded] = useState(true);
-
-  const displayWord = useMemo(
-    () => createShortLabel(word, { maxWords: 8, maxChars: MAX_HEADWORD_DISPLAY_CHARS }),
-    [word],
-  );
 
   const playPronunciation = async () => {
     if (!pronunciation?.audioUrl) return;
@@ -52,10 +46,10 @@ export default function Header({
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
           <h1
-            className="text-3xl font-bold text-gray-900 dark:text-white"
+            className="text-3xl font-bold text-gray-900 dark:text-white truncate"
             title={word}
           >
-            {displayWord}
+            {word}
           </h1>
           {pronunciation && (pronunciation.ipa || pronunciation.audioUrl) && (
             <div className="flex items-center gap-2 mt-1">

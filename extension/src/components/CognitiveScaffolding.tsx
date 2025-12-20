@@ -25,7 +25,6 @@ const relationshipConfig = {
 
 export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldingProps) {
   const baseWord = word || 'Word';
-  const displayBaseWord = createShortLabel(baseWord, { maxWords: 6, maxChars: 40 });
 
   const size = 220;
   const center = size / 2;
@@ -175,9 +174,9 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.3 }}
-                className="px-4 py-2 rounded-full bg-primary-500/90 text-white text-sm font-semibold shadow-lg"
+                className="px-4 py-2 rounded-full bg-primary-500/90 text-white text-sm font-semibold shadow-lg max-w-[200px] text-center"
               >
-                {displayBaseWord}
+                {baseWord}
               </motion.div>
             </div>
 
@@ -222,8 +221,7 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
         <div className="space-y-3">
           {selectedIndex === null ? (
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              点击上面的词汇节点，查看与{' '}
-              <span className="font-semibold">{displayBaseWord}</span>{' '}
+              点击上面的词汇节点，查看与 <span className="font-semibold">{baseWord}</span>{' '}
               的关键区别和典型使用场景。
             </p>
           ) : (
