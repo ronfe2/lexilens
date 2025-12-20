@@ -23,21 +23,13 @@ function App() {
   const { profile } = useUserProfile();
 
   const lastSelectionRef = useRef<AnalysisRequest | null>(null);
+  const handleSelectionRef = useRef<(data: any) => void>();
 
   const handleSelection = useCallback(
     (data: any) => {
       if (!data?.word || !data?.context) return;
-
       const normalizedWord = String(data.word).trim();
       const normalizedContext = String(data.context).trim();
-
-      // Ignore duplicate selections with the same word and context to avoid
-      // hammering the backend (and the external pronunciation API) when some
-      // pages emit multiple selection events for a single user action.
-      const last = lastSelectionRef.current;
-      if (last && last.word === normalizedWord && last.context === normalizedContext) {
-        return;
-      }
 
       const request: AnalysisRequest = {
         word: normalizedWord,
@@ -63,6 +55,13 @@ function App() {
     [learningWords, addEntry, startAnalysis, profile.englishLevel],
   );
 
+  // Always keep a ref to the latest handleSelection so our message
+  // listener can call it without forcing the effect to re-run and
+  // re-send SIDE_PANEL_READY (which would cause duplicate analyses).
+  useEffect(() => {
+    handleSelectionRef.current = handleSelection;
+  }, [handleSelection]);
+
   useEffect(() => {
     console.log('LexiLens sidepanel loaded');
 
@@ -74,14 +73,14 @@ function App() {
       }
 
       if (response?.selection) {
-        handleSelection(response.selection);
+        handleSelectionRef.current?.(response.selection);
       }
     });
 
     // Listen for live selection events while side panel stays open
     const listener = (message: any) => {
       if (message?.type === 'WORD_SELECTED') {
-        handleSelection(message.data);
+        handleSelectionRef.current?.(message.data);
       }
     };
 
@@ -90,7 +89,7 @@ function App() {
     return () => {
       chrome.runtime.onMessage.removeListener(listener);
     };
-  }, [handleSelection]);
+  }, []);
 
   const handleRetry = () => {
     reset();
