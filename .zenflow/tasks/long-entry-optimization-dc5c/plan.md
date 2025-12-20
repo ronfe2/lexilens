@@ -35,3 +35,8 @@ Implement the task directly based on the task description.
 4. Perform basic manual verification if applicable
 
 Save a brief summary of what was done to `{@artifacts_path}/report.md` if significant changes were made.
+
+### [x] Step: 修复下浮的按钮
+<!-- chat-id: 82a96971-5614-4208-84f3-843afcb9511a -->
+
+这次修改导致之前的逻辑被变动了，之前在侧边栏打开的情况下，选中页面的一些文本，在选中下面会浮起一个 LexiLens This 的按钮，现在这个按钮没有了，检查代码，把按钮修复回来

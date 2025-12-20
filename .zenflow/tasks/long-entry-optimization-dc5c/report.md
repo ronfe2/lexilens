@@ -7,6 +7,7 @@ Long Entry Optimization
 - Added shared helpers in `extension/src/shared/utils.ts` (`isLongEntry`, `createShortLabel`) to centralize long‑entry heuristics.
 - Updated the backend layer‑4 prompt (`backend/app/services/prompt_builder.py`) so the LLM keeps `related_words[*].word` as a short word/phrase (1–3 words) suitable for node labels and never returns full sentences there.
 - Introduced a dedicated lexical base word pipeline: `getLexicalBaseWord` on the frontend plus `lexicalBaseWord`/`lexical_base_word` fields so Layer‑4 related nodes and Lexical Map images are generated around the same normalized keyword that the Lexical Map center node displays, instead of the full sentence selection.
+- Restored the inline “LexiLens This” floating button under text selections (when the side panel is open) via the content script, so users explicitly trigger explanations without changing the long‑entry behavior.
 
 Checks:
 - Ran `pnpm install --frozen-lockfile` in `extension/`.

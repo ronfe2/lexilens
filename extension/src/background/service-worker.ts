@@ -198,6 +198,11 @@ chrome.contextMenus?.onClicked.addListener((info, tab) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.debug('LexiLens background received message:', message);
 
+  if (message.type === 'LEXILENS_IS_SIDEPANEL_OPEN') {
+    sendResponse({ success: true, isOpen: isSidepanelOpen });
+    return true;
+  }
+
   if (message.type === 'WORD_SELECTED') {
     const data = message.data || {};
     const tabId = sender.tab?.id;
