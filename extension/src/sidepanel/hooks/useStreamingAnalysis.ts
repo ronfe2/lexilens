@@ -5,6 +5,7 @@ import type {
   AnalysisResult,
   LiveContext,
   CognitiveScaffolding,
+  InterestTopic,
 } from '../../shared/types';
 import { useAppStore } from '../../store/appStore';
 
@@ -204,19 +205,50 @@ export function useStreamingAnalysis() {
       })();
 
       try {
+        const payload: {
+          word: string;
+          context: string;
+          page_type?: AnalysisRequest['pageType'];
+          learning_history?: string[];
+          english_level?: string;
+          url?: string;
+          interests?: {
+            id: string;
+            title: string;
+            summary: string;
+            urls: string[];
+          }[];
+          blocked_titles?: string[];
+        } = {
+          word: request.word,
+          context: request.context,
+          page_type: request.pageType,
+          learning_history: request.learningHistory,
+          english_level: request.englishLevel,
+          url: request.url,
+        };
+
+        if (request.interests && request.interests.length > 0) {
+          payload.interests = (request.interests as InterestTopic[]).map(
+            (topic) => ({
+              id: topic.id,
+              title: topic.title,
+              summary: topic.summary,
+              urls: topic.links.map((link) => link.url),
+            }),
+          );
+        }
+
+        if (request.blockedTitles && request.blockedTitles.length > 0) {
+          payload.blocked_titles = request.blockedTitles;
+        }
+
         const response = await fetch(`${API_URL}/api/analyze`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            word: request.word,
-            context: request.context,
-            page_type: request.pageType,
-            learning_history: request.learningHistory,
-            english_level: request.englishLevel,
-            url: request.url,
-          }),
+          body: JSON.stringify(payload),
           signal: controller.signal,
         });
 

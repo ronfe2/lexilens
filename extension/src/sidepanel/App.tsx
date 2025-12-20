@@ -13,9 +13,11 @@ import { useStreamingAnalysis } from './hooks/useStreamingAnalysis';
 import { useLearningHistory } from './hooks/useLearningHistory';
 import { useTheme } from './hooks/useTheme';
 import { useUserProfile } from './hooks/useUserProfile';
+import { useInterests } from './hooks/useInterests';
 import EnglishLevelDialog from '../components/EnglishLevelDialog';
 import ProfilePage from './ProfilePage';
-import type { AnalysisRequest } from '../shared/types';
+import { API_URL } from '../shared/constants';
+import type { AnalysisRequest, InterestLink, InterestTopic } from '../shared/types';
 
 function App() {
   const { currentWord, analysisResult, isLoading, error, reset } = useAppStore();
@@ -23,12 +25,147 @@ function App() {
   const { startAnalysis } = useStreamingAnalysis();
   const { theme, toggleTheme } = useTheme();
   const { profile, updateProfile } = useUserProfile();
+  const interests = useInterests();
+  const { topics, blockedTitles, addOrUpdateFromServer } = interests;
 
   const [view, setView] = useState<'coach' | 'profile'>('coach');
   const [isLevelDialogOpen, setIsLevelDialogOpen] = useState(false);
 
   const lastSelectionRef = useRef<AnalysisRequest | null>(null);
   const handleSelectionRef = useRef<(data: any) => void>();
+
+  const updateInterestsFromUsage = useCallback(
+    (request: AnalysisRequest) => {
+      // Require a URL so we can attach it as a concrete example; if missing,
+      // skip interest summarization for this usage.
+      if (!request.url) return;
+
+      const existingTopics = topics.map((topic) => ({
+        id: topic.id,
+        title: topic.title,
+        summary: topic.summary,
+        urls: topic.links.map((link) => link.url),
+      }));
+
+      // Fire-and-forget call to the interests API; this should never block
+      // the main analysis flow.
+      (async () => {
+        try {
+          const resp = await fetch(`${API_URL}/api/interests/from-usage`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              word: request.word,
+              context: request.context,
+              page_type: request.pageType,
+              url: request.url,
+              existing_topics: existingTopics,
+              blocked_titles: blockedTitles,
+            }),
+          });
+
+          if (!resp.ok) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              '[LexiLens] Failed to update interests from usage',
+              resp.status,
+            );
+            return;
+          }
+
+          const json = await resp.json();
+          const rawTopics = Array.isArray(json?.topics) ? json.topics : [];
+
+          const now = Date.now();
+          const currentById = new Map<string, InterestTopic>(
+            topics.map((topic) => [topic.id, topic]),
+          );
+
+          const mappedTopics: InterestTopic[] = [];
+
+          for (const raw of rawTopics as any[]) {
+            if (!raw || typeof raw !== 'object') continue;
+
+            const rawId =
+              typeof raw.id === 'string' && raw.id.trim().length > 0
+                ? (raw.id as string).trim()
+                : '';
+            const rawTitle =
+              typeof raw.title === 'string' && raw.title.trim().length > 0
+                ? (raw.title as string).trim()
+                : '';
+
+            if (!rawTitle) continue;
+
+            const id =
+              rawId || rawTitle.toLowerCase().replace(/\s+/g, '-');
+
+            const summary =
+              typeof raw.summary === 'string' && raw.summary.trim().length > 0
+                ? (raw.summary as string).trim()
+                : '';
+
+            const urls = (Array.isArray((raw as any).urls)
+              ? (raw as any).urls
+              : []
+            )
+              .map((u: unknown) => (typeof u === 'string' ? u.trim() : ''))
+              .filter((u: string): u is string => u.length > 0);
+
+            const existing = currentById.get(id);
+            const existingLinks = existing?.links ?? [];
+
+            const normalizedExistingLinks: InterestLink[] = existingLinks.filter(
+              (link) =>
+                link &&
+                typeof link.url === 'string' &&
+                link.url.trim().length > 0,
+            );
+
+            const seenUrls = new Set(
+              normalizedExistingLinks.map((link) => link.url),
+            );
+
+            const newLinks: InterestLink[] = [];
+            for (const url of urls) {
+              if (seenUrls.has(url)) continue;
+              newLinks.push({
+                url,
+                title: undefined,
+                lastUsedAt: now,
+              });
+            }
+
+            const links = [...newLinks, ...normalizedExistingLinks];
+
+            mappedTopics.push({
+              id,
+              title: rawTitle,
+              summary,
+              links,
+              createdAt: existing?.createdAt ?? now,
+              updatedAt: now,
+            });
+          }
+
+          if (!mappedTopics.length) {
+            return;
+          }
+
+          addOrUpdateFromServer(mappedTopics);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[LexiLens] Failed to summarize interests from usage',
+            err,
+          );
+        }
+      })();
+    },
+    [topics, blockedTitles, addOrUpdateFromServer],
+  );
 
   const handleSelection = useCallback(
     (data: any) => {
@@ -43,6 +180,8 @@ function App() {
         learningHistory: learningWords,
         englishLevel: profile.englishLevel,
         url: data.url,
+        interests: topics,
+        blockedTitles,
       };
 
       lastSelectionRef.current = request;
@@ -56,8 +195,18 @@ function App() {
 
       // Fire-and-forget streaming analysis
       void startAnalysis(request);
+      // In parallel, ask the backend to summarize/update interest topics
+      updateInterestsFromUsage(request);
     },
-    [learningWords, addEntry, startAnalysis, profile.englishLevel],
+    [
+      learningWords,
+      addEntry,
+      startAnalysis,
+      profile.englishLevel,
+      topics,
+      blockedTitles,
+      updateInterestsFromUsage,
+    ],
   );
 
   // Always keep a ref to the latest handleSelection so our message
@@ -133,6 +282,7 @@ function App() {
               onUpdateProfile={updateProfile}
               onBack={() => setView('coach')}
               onLevelClick={() => setIsLevelDialogOpen(true)}
+              interests={interests}
             />
           </div>
         ) : (!currentWord && !hasAnalysis && !isLoading && !error) ? (

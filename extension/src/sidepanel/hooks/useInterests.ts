@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { DEMO_INTERESTS, STORAGE_KEYS } from '../../shared/constants';
 import type { InterestLink, InterestTopic } from '../../shared/types';
 
-interface UseInterestsResult {
+export interface UseInterestsResult {
   topics: InterestTopic[];
   blockedTitles: string[];
   loading: boolean;

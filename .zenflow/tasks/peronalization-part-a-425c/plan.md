@@ -69,7 +69,8 @@ Implement backend support for interest summarization and prompt updates:
 - Extend `AnalyzeRequest` and `PromptBuilder.build_layer4_prompt` to accept interest metadata and blocklists.
 - Update tests (e.g., `test_prompt_builder.py`) to cover the new prompt behavior.
 
-### [ ] Step: Integration & Verification
+### [x] Step: Integration & Verification
+<!-- chat-id: e45ebc92-d4a0-4aa9-a4be-e9d05da8d646 -->
 
 Wire frontend and backend together and verify end‑to‑end behavior:
 - From the sidepanel, call the new interests API after analyses and update stored topics.

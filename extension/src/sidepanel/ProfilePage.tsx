@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import InterestCard from '../components/InterestCard';
 import { getLevelConfig, type UserProfile } from './hooks/useUserProfile';
-import { useInterests } from './hooks/useInterests';
+import type { UseInterestsResult } from './hooks/useInterests';
 import { useWordbook } from './hooks/useWordbook';
 
 interface ProfilePageProps {
@@ -10,6 +10,7 @@ interface ProfilePageProps {
   onUpdateProfile: (partial: Partial<UserProfile>) => void;
   onBack: () => void;
   onLevelClick: () => void;
+  interests: UseInterestsResult;
 }
 
 export default function ProfilePage({
@@ -17,12 +18,12 @@ export default function ProfilePage({
   onUpdateProfile,
   onBack,
   onLevelClick,
+  interests,
 }: ProfilePageProps) {
   const [nicknameInput, setNicknameInput] = useState(profile.nickname);
   const [avatarInput, setAvatarInput] = useState(profile.avatarUrl ?? '');
 
   const levelConfig = getLevelConfig(profile.englishLevel);
-  const interests = useInterests();
   const wordbook = useWordbook();
 
   useEffect(() => {
@@ -243,4 +244,3 @@ export default function ProfilePage({
     </div>
   );
 }
-

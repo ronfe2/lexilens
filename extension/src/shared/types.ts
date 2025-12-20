@@ -6,6 +6,10 @@ export interface AnalysisRequest {
   // Learner's CEFR level (e.g. "B1") used for level-aware prompts
   englishLevel?: string;
   url?: string;
+  // Optional interest metadata used for personalization and summarization
+  interests?: InterestTopic[];
+  // Titles of interests the user has explicitly removed; used as a blocklist
+  blockedTitles?: string[];
 }
 
 export interface BehaviorPattern {
