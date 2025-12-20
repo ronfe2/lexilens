@@ -40,3 +40,7 @@ Save a brief summary of what was done to `{@artifacts_path}/report.md` if signif
 <!-- chat-id: 82a96971-5614-4208-84f3-843afcb9511a -->
 
 这次修改导致之前的逻辑被变动了，之前在侧边栏打开的情况下，选中页面的一些文本，在选中下面会浮起一个 LexiLens This 的按钮，现在这个按钮没有了，检查代码，把按钮修复回来
+
+### [x] Step: Merge main and finalize
+
+将 long-entry-optimization-dc5c 分支与最新的 main 分支完成合并，解决分支落后导致的合并错误，并在 main 上 fast-forward 合并该任务分支。
