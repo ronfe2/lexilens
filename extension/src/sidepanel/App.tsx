@@ -326,6 +326,7 @@ function App() {
                     <CognitiveScaffolding
                       data={analysisResult.layer4}
                       word={analysisResult.word || currentWord || ''}
+                      enableAsyncImageWarmup={profile.nickname === 'Lexi Learner'}
                     />
                   )}
 

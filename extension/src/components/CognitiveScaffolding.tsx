@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Lightbulb, ArrowRight } from 'lucide-react';
 import type { CognitiveScaffolding as CognitiveScaffoldingType } from '../shared/types';
@@ -8,12 +8,17 @@ import { createShortLabel, getLexicalBaseWord } from '../shared/utils';
 interface CognitiveScaffoldingProps {
   data: CognitiveScaffoldingType;
   word: string;
+  // When true, enable the async "warmup" request for the default demo
+  // profile (Lexi Learner) so the image is ready before the user clicks.
+  enableAsyncImageWarmup?: boolean;
 }
 
 interface LexicalImageResponse {
   image_url: string;
   prompt?: string;
 }
+
+type PrefetchStatus = 'idle' | 'loading' | 'success' | 'error';
 
 const relationshipConfig = {
   synonym: { label: 'Similar', color: 'text-blue-600 dark:text-blue-400' },
@@ -23,7 +28,67 @@ const relationshipConfig = {
   collocate: { label: 'Collocate', color: 'text-teal-600 dark:text-teal-400' },
 } as const;
 
-export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldingProps) {
+// Pick a default related word with the following priority:
+// 1) "synonym" relationships first
+// 2) Within that group (or all others when no synonym), smallest word in
+//    ascending alphabetical order.
+function selectPreferredRelatedIndex(
+  relatedWords: CognitiveScaffoldingType['relatedWords'],
+  maxCount: number,
+): number | null {
+  if (!relatedWords || relatedWords.length === 0 || maxCount <= 0) {
+    return null;
+  }
+
+  const available = relatedWords.slice(0, maxCount);
+
+  const pickFrom = (items: { index: number; word: string }[]): number | null => {
+    if (!items.length) return null;
+    const sorted = [...items].sort((a, b) => a.word.localeCompare(b.word));
+    return sorted[0]?.index ?? null;
+  };
+
+  const normalized = available.map((rw, index) => ({
+    index,
+    relationship: rw.relationship,
+    word: (rw.word ?? '').toString().toLowerCase(),
+  }));
+
+  const synonymCandidates = normalized.filter((item) => item.relationship === 'synonym');
+  const synonymIndex = pickFrom(synonymCandidates);
+  if (synonymIndex !== null) {
+    return synonymIndex;
+  }
+
+  return pickFrom(normalized);
+}
+
+async function fetchLexicalImage(
+  baseWord: string,
+  relatedWord: string,
+): Promise<LexicalImageResponse> {
+  const resp = await fetch(`${API_URL}/api/lexical-map/image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      base_word: baseWord,
+      related_word: relatedWord,
+    }),
+  });
+
+  if (!resp.ok) {
+    throw new Error(`HTTP ${resp.status}`);
+  }
+
+  const json: LexicalImageResponse = await resp.json();
+  return json;
+}
+
+export default function CognitiveScaffolding({
+  data,
+  word,
+  enableAsyncImageWarmup = false,
+}: CognitiveScaffoldingProps) {
   const rawBaseWord = word || 'Word';
   const displayBaseWord = getLexicalBaseWord(rawBaseWord) || rawBaseWord;
 
@@ -60,9 +125,115 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
     relatedWord: null,
   });
 
+  // Internal refs for managing the hidden warmup request.
+  const prefetchKeyRef = useRef<string | null>(null);
+  const prefetchStatusRef = useRef<PrefetchStatus>('idle');
+  const prefetchResultRef = useRef<LexicalImageResponse | null>(null);
+  const usingPrefetchRef = useRef(false);
+  const userClickedRef = useRef(false);
+  const delayTimerRef = useRef<number | null>(null);
+
+  // Warm up the lexical image request in the background for the default
+  // demo profile (Lexi Learner). This uses the priority rules:
+  // 1) "synonym" relationship first
+  // 2) Alphabetical order within the candidate group
+  useEffect(() => {
+    if (!enableAsyncImageWarmup) return;
+    if (!data.relatedWords || data.relatedWords.length === 0) return;
+
+    const preferredIndex = selectPreferredRelatedIndex(
+      data.relatedWords,
+      positions.length,
+    );
+    if (preferredIndex === null) return;
+
+    const preferred = data.relatedWords[preferredIndex];
+    if (!preferred || !preferred.word) return;
+
+    const baseWord = displayBaseWord;
+    const relatedWord = preferred.word;
+    const prefetchKey = `${baseWord}:::${relatedWord}`.toLowerCase();
+
+    // Avoid duplicate warmup requests for the same pair.
+    if (
+      prefetchKeyRef.current === prefetchKey &&
+      prefetchStatusRef.current !== 'idle'
+    ) {
+      return;
+    }
+
+    prefetchKeyRef.current = prefetchKey;
+    prefetchStatusRef.current = 'loading';
+    prefetchResultRef.current = null;
+
+    // Fire-and-forget warmup request; any UI updates are gated by whether
+    // the user has interacted with the "generate image" button.
+    void (async () => {
+      try {
+        const json = await fetchLexicalImage(baseWord, relatedWord);
+
+        // If another warmup has started in the meantime, ignore this result.
+        if (prefetchKeyRef.current !== prefetchKey) {
+          return;
+        }
+
+        prefetchStatusRef.current = 'success';
+        prefetchResultRef.current = json;
+
+        // If the user already clicked while warmup was in-flight and we are
+        // relying on this warmup request (instead of sending a second one),
+        // show the image immediately once it is ready.
+        if (
+          usingPrefetchRef.current &&
+          userClickedRef.current &&
+          !delayTimerRef.current
+        ) {
+          setImageState((prev) => ({
+            ...prev,
+            url: json.image_url,
+            isLoading: false,
+            error: null,
+          }));
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Lexical image warmup failed', err);
+
+        if (prefetchKeyRef.current !== prefetchKey) {
+          return;
+        }
+
+        prefetchStatusRef.current = 'error';
+        prefetchResultRef.current = null;
+
+        // If the user is already waiting on this warmup request, surface an
+        // error but continue to keep the "text" explanation available.
+        if (
+          usingPrefetchRef.current &&
+          userClickedRef.current &&
+          !delayTimerRef.current
+        ) {
+          setImageState((prev) => ({
+            ...prev,
+            isLoading: false,
+            error: '漫画生成失败，请稍后再试。',
+          }));
+          setViewMode('text');
+        }
+      }
+    })();
+  }, [enableAsyncImageWarmup, data.relatedWords, displayBaseWord, positions.length]);
+
   // Reset image state whenever the selected node or base word changes.
   useEffect(() => {
     setViewMode('text');
+    userClickedRef.current = false;
+    usingPrefetchRef.current = false;
+    if (delayTimerRef.current != null) {
+      window.clearTimeout(delayTimerRef.current);
+      delayTimerRef.current = null;
+    }
+
     setImageState({
       url: null,
       isLoading: false,
@@ -72,6 +243,17 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
     });
   }, [selectedIndex, word]);
 
+  useEffect(
+    () => () => {
+      // Cleanup any pending artificial delay timers on unmount.
+      if (delayTimerRef.current != null) {
+        window.clearTimeout(delayTimerRef.current);
+        delayTimerRef.current = null;
+      }
+    },
+    [],
+  );
+
   const handleGenerateImage = async () => {
     if (selectedIndex === null) return;
 
@@ -79,36 +261,74 @@ export default function CognitiveScaffolding({ data, word }: CognitiveScaffoldin
     if (!related) return;
 
     const base = displayBaseWord;
+    setViewMode('image');
+    userClickedRef.current = true;
 
+    const relatedWord = related.word;
+    const requestKey = `${base}:::${relatedWord}`.toLowerCase();
+    const hasMatchingWarmup =
+      enableAsyncImageWarmup &&
+      prefetchKeyRef.current === requestKey &&
+      prefetchStatusRef.current !== 'idle';
+
+    // Always show the loading state while the user waits.
     setImageState({
       url: null,
       isLoading: true,
       error: null,
       baseWord: base,
-      relatedWord: related.word,
+      relatedWord,
     });
-    setViewMode('image');
+
+    // 1) Warmup already finished for this pair: fake a short delay so it still
+    //    feels like a live request.
+    if (
+      hasMatchingWarmup &&
+      prefetchStatusRef.current === 'success' &&
+      prefetchResultRef.current?.image_url
+    ) {
+      usingPrefetchRef.current = true;
+
+      const delayMs = 1000 + Math.floor(Math.random() * 4000);
+      const timerId = window.setTimeout(() => {
+        // Only apply the prefetched result if nothing else has superseded it.
+        if (
+          usingPrefetchRef.current &&
+          prefetchKeyRef.current === requestKey &&
+          prefetchStatusRef.current === 'success' &&
+          prefetchResultRef.current?.image_url
+        ) {
+          setImageState((prev) => ({
+            ...prev,
+            url: prefetchResultRef.current!.image_url,
+            isLoading: false,
+            error: null,
+          }));
+        }
+        delayTimerRef.current = null;
+      }, delayMs);
+
+      delayTimerRef.current = timerId;
+      return;
+    }
+
+    // 2) Warmup is in-flight for this pair: do not send another request.
+    if (hasMatchingWarmup && prefetchStatusRef.current === 'loading') {
+      usingPrefetchRef.current = true;
+      return;
+    }
+
+    // 3) No usable warmup available – fall back to a normal request.
+    usingPrefetchRef.current = false;
 
     try {
-      const resp = await fetch(`${API_URL}/api/lexical-map/image`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          base_word: base,
-          related_word: related.word,
-        }),
-      });
-
-      if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status}`);
-      }
-
-      const json: LexicalImageResponse = await resp.json();
+      const json = await fetchLexicalImage(base, relatedWord);
 
       setImageState((prev) => ({
         ...prev,
         url: json.image_url,
         isLoading: false,
+        error: null,
       }));
     } catch (err) {
       // eslint-disable-next-line no-console
