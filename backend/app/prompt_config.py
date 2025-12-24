@@ -113,15 +113,16 @@ Requirements:
 - Include enough context to understand the situation
 - Use the word "{word}" naturally, not forced
 - Mark which source each is from
+- Do NOT include any decorative fields like icons; only return source and text.
 
 Word: {word}
 Original context: {context}
 
 Return as JSON array with this exact structure:
 [
-  {{"source": "twitter", "text": "...", "icon": "twitter"}},
-  {{"source": "news", "text": "...", "icon": "newspaper"}},
-  {{"source": "academic", "text": "...", "icon": "graduation-cap"}}
+  {{"source": "twitter", "text": "..."}},
+  {{"source": "news", "text": "..."}},
+  {{"source": "academic", "text": "..."}}
 ]""",
     },
 
@@ -146,10 +147,12 @@ Requirements:
   one about grammar/form, the other about collocation/meaning/context).
 - Do NOT give two variants of the same error type (for example: both only
   about singular vs plural).
+- Keep each Chinese explanation ("why") very short: 1–2 sentences of concise
+  Simplified Chinese focusing only on the key reason.
 
 For each mistake, provide:
 1. wrong: [incorrect example sentence in English, using "{word}"]
-2. why: [brief explanation in Simplified Chinese]
+2. why: [brief explanation in Simplified Chinese, 1–2 short sentences]
 3. correct: [corrected sentence in English, using "{word}"]
 
 Word: {word}
@@ -210,7 +213,47 @@ Adjust the difficulty so it feels encouraging and not overwhelming for this lear
         },
     },
 
-    # Layer 4: Related words + personalized coaching in Chinese.
+    # Layer 4 (Stage A): Fast candidate recall for related words.
+    # 使用位置:
+    # - app.services.prompt_builder.PromptBuilder.build_layer4_candidates_prompt
+    # - app.services.llm_orchestrator.LLMOrchestrator.generate_layer4_candidates
+    # 模板变量:
+    # - {word}: 当前查询单词
+    # - {context}: 页面上选中的英文原句
+    "layer4_candidates": {
+        "system_prompt": (
+            "You are a vocabulary coach quickly recalling candidate related words "
+            "for a lexical map."
+        ),
+        "user_prompt_template": """Task: Suggest up to 5 high-quality related English words or short phrases that help learners understand "{word}" better.
+
+Requirements:
+- Focus on concise candidate labels for a lexical map.
+- Each candidate must be a single word or a very short phrase (maximum 3 words).
+- Do NOT include any Chinese characters in the "word" field.
+- Prioritize usefulness and diversity; avoid near-duplicate candidates.
+
+For each candidate, provide:
+- word: the related English word or short phrase
+- relationship: one of ["synonym", "antonym", "narrower", "broader", "collocate"]
+
+Word: {word}
+Context sentence: {context}
+
+Return ONLY a JSON array of objects with this structure:
+[
+  {{
+    "word": "candidate 1",
+    "relationship": "synonym"
+  }},
+  {{
+    "word": "candidate 2",
+    "relationship": "broader"
+  }}
+]""",
+    },
+
+    # Layer 4 (Stage B): Related words + personalized coaching in Chinese.
     # 使用位置:
     # - app.services.prompt_builder.PromptBuilder.build_layer4_prompt
     # - app.services.llm_orchestrator.LLMOrchestrator.generate_layer4
@@ -230,7 +273,7 @@ Adjust the difficulty so it feels encouraging and not overwhelming for this lear
     #   - {favorites_preview}: 学习者标记为“精选”的部分单词，逗号分隔后的字符串
     "layer4": {
         "system_prompt": "You are a vocabulary coach building connections.",
-        "user_prompt_template": """Task: Recommend 2 related words/phrases that help learners understand "{word}" better.
+        "user_prompt_template": """Task: Recommend up to 5 high-quality related words/phrases that help learners understand "{word}" better.
 
 For each related word, provide:
 - word: [related word or short phrase ONLY; maximum 1–3 words, never a full sentence]
@@ -242,6 +285,9 @@ Important formatting rules for the "word" field:
 - It must be concise enough to fit inside a small node label in a lexical map.
 - Do NOT copy the entire context sentence or write a full definition here.
 - Do NOT include Chinese text in the "word" field.
+- Always include at least 1 related word and at most 5 in total.
+- Prioritize quality over quantity: it is better to return 2–3 excellent
+  choices than 5 weak or repetitive ones.
 
 Personalized coaching (Chinese):
 - Always include a "personalized" field in the JSON response.
@@ -250,6 +296,10 @@ Personalized coaching (Chinese):
 - Use concrete scenes from everyday life to help them feel the word.
 - When learning history is available, briefly connect this word to some of their previously studied words.
 {interests_note}{blocklist_note}{favorites_note}
+
+If a smaller model has already suggested candidate related words, here is its JSON array
+for your reference (you MAY drop or replace items that are low quality):
+{candidates_for_prompt}
 
 Word: {word}
 Context: {context}
@@ -331,6 +381,45 @@ The learner's approximate CEFR level is {english_level}. Do NOT mention CEFR or 
 
 Adjust the difficulty of your coaching so it feels encouraging and not overwhelming.""",
         },
+    },
+
+    # Layer 4 – streaming-only personalized coaching text (Chinese).
+    # 使用位置:
+    # - app.services.prompt_builder.PromptBuilder.build_layer4_personalized_prompt
+    # - app.services.llm_orchestrator.LLMOrchestrator.generate_layer4_personalized_stream
+    # 模板变量:
+    # - {word}: 当前查询单词
+    # - {context}: 页面上选中的英文原句
+    # - {learning_history}: 历史学过的单词列表（Python list，会以 repr 形式插入）
+    # - {history_note}: 根据 learning_history[:10] 生成的说明（可能为空字符串）
+    # - {level_note}: 根据 english_level 生成的额外说明（只在传入 english_level 时非空）
+    # - {interests_note}: 根据兴趣列表生成的个性化场景说明
+    # - {blocklist_note}: 根据 blocked_titles 生成的屏蔽说明（可能为空字符串）
+    # - {favorites_note}: 根据 favorite_words 生成的重点单词说明（可能为空字符串）
+    "layer4_personalized": {
+        "system_prompt": (
+            "You are a warm, encouraging Chinese-speaking vocabulary coach who writes "
+            "short, concrete tips for English learners."
+        ),
+        "user_prompt_template": """任务：结合下面的信息，为正在学习单词 "{word}" 的学生写一段简短的「解读 / 小贴士」，帮助 TA 更快掌握这个单词。
+
+写作要求：
+- 全程使用**简体中文**。
+- 写 1–3 句短句即可，每句尽量简洁具体。
+- 直接用「你」来跟学习者说话，语气温暖但不过度鸡汤。
+- 用生活中看得见的场景来解释这个词给人的感觉和用法，而不是讲抽象语法规则。
+- 如果合适，可以顺带提一下 TA 之前学过的相关单词，让记忆之间有连结。
+- 不要使用项目符号/序号、不要输出英文解释或逐词对照。
+- 不要提到 CEFR 等级、提示词、模型、或者「上面这些信息」。
+{interests_note}{blocklist_note}{favorites_note}
+
+关键信息：
+- 当前单词：{word}
+- 原句：{context}
+- 学习历史（可能为空）：{learning_history}
+{history_note}{level_note}
+
+请直接输出给学习者看的那 1–3 句中文「解读」，不要再解释你的任务，也不要加引号或任何 markdown 标记。""",
     },
 
     # Learner interests summarization: maintain/update long-term interest topics.

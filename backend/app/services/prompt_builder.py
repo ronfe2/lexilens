@@ -109,6 +109,7 @@ class PromptBuilder:
         interests: Optional[List[InterestTopicPayload]] = None,
         blocked_titles: Optional[List[str]] = None,
         favorite_words: Optional[List[str]] = None,
+        candidates_for_prompt: str | None = None,
     ) -> tuple[str, str]:
         layer_cfg = PROMPT_CONFIG["layer4"]
         system_prompt = layer_cfg["system_prompt"]
@@ -167,6 +168,110 @@ class PromptBuilder:
             interests_note=interests_note,
             blocklist_note=blocklist_note,
             favorites_note=favorites_note,
+            candidates_for_prompt=candidates_for_prompt or "",
+        )
+
+        return system_prompt, user_prompt
+
+    @staticmethod
+    def build_layer4_personalized_prompt(
+        word: str,
+        context: str,
+        learning_history: list[str] | None = None,
+        english_level: str | None = None,
+        interests: Optional[List[InterestTopicPayload]] = None,
+        blocked_titles: Optional[List[str]] = None,
+        favorite_words: Optional[List[str]] = None,
+    ) -> tuple[str, str]:
+        """
+        Build the prompt for streaming-only personalized coaching text
+        (解读部分). This reuses the same level/history/interest notes as
+        the main Layer 4 prompt so the tone stays consistent.
+        """
+        layer_cfg = PROMPT_CONFIG["layer4_personalized"]
+        base_layer4_cfg = PROMPT_CONFIG["layer4"]
+        system_prompt = layer_cfg["system_prompt"]
+
+        history_note = ""
+        if learning_history:
+            history_preview = ", ".join(learning_history[:10])
+            template = base_layer4_cfg.get("history_note_template")
+            if template:
+                history_note = template.format(history_preview=history_preview)
+
+        level_note = PromptBuilder._build_level_note("layer4", english_level)
+
+        favorites_note = ""
+        if favorite_words:
+            favorites_preview = ", ".join(favorite_words[:10])
+            template = base_layer4_cfg.get("favorites_note_template")
+            if template:
+                favorites_note = template.format(
+                    favorites_preview=favorites_preview
+                )
+
+        interests_note = ""
+        if interests:
+            # Summarize up to 5 topics for the model.
+            lines: list[str] = []
+            for idx, topic in enumerate(interests[:5], start=1):
+                title = topic.title.strip()
+                summary = topic.summary.strip()
+                line = f"{idx}) {title}"
+                if summary:
+                    line += f"：{summary}"
+                lines.append(line)
+
+            joined = "\n".join(f"- {line}" for line in lines)
+            template = base_layer4_cfg.get("interests_with_topics_template")
+            if template:
+                interests_note = template.format(
+                    joined=joined,
+                    word=word,
+                )
+        else:
+            interests_note = base_layer4_cfg.get(
+                "interests_without_topics_template",
+                "",
+            )
+
+        blocklist_note = ""
+        if blocked_titles:
+            blocked_preview = ", ".join(blocked_titles[:5])
+            template = base_layer4_cfg.get("blocklist_note_template")
+            if template:
+                blocklist_note = template.format(
+                    blocked_preview=blocked_preview
+                )
+
+        user_prompt = layer_cfg["user_prompt_template"].format(
+            word=word,
+            context=context,
+            learning_history=learning_history or [],
+            history_note=history_note,
+            level_note=level_note,
+            interests_note=interests_note,
+            blocklist_note=blocklist_note,
+            favorites_note=favorites_note,
+        )
+
+        return system_prompt, user_prompt
+
+    @staticmethod
+    def build_layer4_candidates_prompt(
+        word: str,
+        context: str,
+    ) -> tuple[str, str]:
+        """
+        Build the lightweight prompt for Stage A of Layer 4, which recalls
+        candidate related words using a fast model.
+        """
+        layer_cfg = PROMPT_CONFIG["layer4_candidates"]
+        system_prompt = layer_cfg["system_prompt"]
+
+        user_prompt = layer_cfg["user_prompt_template"].format(
+            word=word,
+            context=context,
         )
 
         return system_prompt, user_prompt

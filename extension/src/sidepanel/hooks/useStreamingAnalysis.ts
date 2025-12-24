@@ -98,6 +98,7 @@ export function useStreamingAnalysis(options?: UseStreamingAnalysisOptions) {
       setAnalysisResult({ word: request.word } as AnalysisResult);
 
       let accumulatedLayer1 = '';
+       let accumulatedLayer4Personalized = '';
 
       const handleEvent = (evt: SSEEvent) => {
         const { event, data } = evt;
@@ -149,10 +150,37 @@ export function useStreamingAnalysis(options?: UseStreamingAnalysisOptions) {
             updateAnalysisLayer('layer3', Array.isArray(rawMistakes) ? rawMistakes : []);
             break;
           }
+          case 'layer4_personalized_chunk': {
+            if (!data || typeof data !== 'object') return;
+            const content = (data as any).content ?? '';
+            if (typeof content !== 'string' || !content) return;
+
+            accumulatedLayer4Personalized += content;
+
+            // Merge streamed 解读内容 with any relatedWords that may have
+            // already arrived (or not) so the CoachSummary can start
+            // rendering personalized text as early as possible.
+            const { analysisResult } = useAppStore.getState();
+            const existingLayer4 = analysisResult?.layer4;
+            const relatedWords = existingLayer4?.relatedWords ?? [];
+
+            const cognitive: CognitiveScaffolding = {
+              relatedWords,
+              personalizedTip: accumulatedLayer4Personalized,
+            };
+
+            updateAnalysisLayer('layer4', cognitive);
+            break;
+          }
           case 'layer4': {
             if (!data || typeof data !== 'object') return;
             const relatedWordsRaw = (data as any).related_words ?? [];
             const personalized = (data as any).personalized ?? undefined;
+
+            const { analysisResult } = useAppStore.getState();
+            const existingLayer4 = analysisResult?.layer4;
+            const existingPersonalized =
+              (existingLayer4?.personalizedTip ?? '').toString().trim() || '';
 
             const cognitive: CognitiveScaffolding = {
               relatedWords: Array.isArray(relatedWordsRaw)
@@ -163,7 +191,12 @@ export function useStreamingAnalysis(options?: UseStreamingAnalysisOptions) {
                     whenToUse: rw.when_to_use,
                   }))
                 : [],
-              personalizedTip: personalized,
+              // Prefer the streamed 解读内容 when available so the user sees
+              // a continuous streaming experience. Fall back to the JSON
+              // field for non-streaming clients or error cases.
+              personalizedTip:
+                (accumulatedLayer4Personalized || existingPersonalized || personalized) ??
+                undefined,
             };
 
             updateAnalysisLayer('layer4', cognitive);
@@ -225,6 +258,7 @@ export function useStreamingAnalysis(options?: UseStreamingAnalysisOptions) {
           }[];
           blocked_titles?: string[];
           favorite_words?: string[];
+          layers?: number[];
         } = {
           word: request.word,
           context: request.context,
@@ -233,6 +267,15 @@ export function useStreamingAnalysis(options?: UseStreamingAnalysisOptions) {
           english_level: request.englishLevel,
           url: request.url,
         };
+
+        // By default, request only Lexical Map (Layer 4) and Live Contexts (Layer 2).
+        // Common Mistakes (Layer 3) is now generated lazily when the user clicks
+        // the "生成常见错误" button.
+        const requestedLayers =
+          Array.isArray(request.layers) && request.layers.length > 0
+            ? request.layers
+            : [2, 4];
+        payload.layers = requestedLayers;
 
         if (request.interests && request.interests.length > 0) {
           payload.interests = (request.interests as InterestTopic[]).map(

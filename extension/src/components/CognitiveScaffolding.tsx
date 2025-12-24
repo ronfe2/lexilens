@@ -8,6 +8,10 @@ import { createShortLabel, getLexicalBaseWord } from '../shared/utils';
 interface CognitiveScaffoldingProps {
   data: CognitiveScaffoldingType;
   word: string;
+  // When true, show a lightweight "loading" state even if relatedWords
+  // have not arrived yet so the Lexical Map section is visible during
+  // initial analysis.
+  isLoading?: boolean;
   // When true, enable the async "warmup" request for the default demo
   // profile (Lexi Learner) so the image is ready before the user clicks.
   enableAsyncImageWarmup?: boolean;
@@ -126,6 +130,7 @@ async function fetchLexicalImage(
 export default function CognitiveScaffolding({
   data,
   word,
+  isLoading = false,
   enableAsyncImageWarmup = false,
   favoriteWords,
   onImageGenerated,
@@ -143,13 +148,31 @@ export default function CognitiveScaffolding({
     { x: center + 80, y: center - 40 },
   ];
 
-  const graphNodes = data.relatedWords.slice(0, positions.length).map((related, index) => ({
+  // Backend may eventually return up to 5 related words, but the current
+  // UI only has room for 4 nodes. Always slice to the visible positions so
+  // we keep the layout stable even as the underlying API evolves.
+  const visibleRelatedWords =
+    Array.isArray(data.relatedWords) && data.relatedWords.length > 0
+      ? data.relatedWords.slice(0, positions.length)
+      : [];
+
+  const hasRelatedWords = visibleRelatedWords.length > 0;
+
+  const graphNodes = visibleRelatedWords.map((related, index) => ({
     related,
     x: positions[index].x,
     y: positions[index].y,
     // Use a concise label so long phrases/sentences do not blow up node size.
     label: createShortLabel(related.word, { maxWords: 4, maxChars: 32 }),
   }));
+
+  // When Lexical Map is running in a candidate-first mode, the frontend may
+  // initially receive only `word`/`relationship` without detailed text.
+  const hasAnyEnrichedDetails = visibleRelatedWords.some((related) => {
+    const diff = (related.keyDifference ?? '').trim();
+    const when = (related.whenToUse ?? '').trim();
+    return diff.length > 0 || when.length > 0;
+  });
 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'text' | 'image'>('text');
@@ -167,6 +190,9 @@ export default function CognitiveScaffolding({
     relatedWord: null,
   });
 
+  const selectedRelated =
+    selectedIndex !== null ? visibleRelatedWords[selectedIndex] : null;
+
   // Internal refs for managing the hidden warmup request.
   const prefetchKeyRef = useRef<string | null>(null);
   const prefetchStatusRef = useRef<PrefetchStatus>('idle');
@@ -182,16 +208,16 @@ export default function CognitiveScaffolding({
   // 3) Alphabetical order within the candidate group.
   useEffect(() => {
     if (!enableAsyncImageWarmup) return;
-    if (!data.relatedWords || data.relatedWords.length === 0) return;
+    if (!visibleRelatedWords || visibleRelatedWords.length === 0) return;
 
     const preferredIndex = selectPreferredRelatedIndex(
-      data.relatedWords,
+      visibleRelatedWords,
       positions.length,
       favoriteWords,
     );
     if (preferredIndex === null) return;
 
-    const preferred = data.relatedWords[preferredIndex];
+    const preferred = visibleRelatedWords[preferredIndex];
     if (!preferred || !preferred.word) return;
 
     const baseWord = displayBaseWord;
@@ -275,6 +301,10 @@ export default function CognitiveScaffolding({
         }
       }
     })();
+    // We intentionally depend on the raw `data.relatedWords` object here
+    // instead of the derived `visibleRelatedWords` slice so the warmup
+    // effect only runs when the backend payload actually changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     enableAsyncImageWarmup,
     data.relatedWords,
@@ -331,7 +361,7 @@ export default function CognitiveScaffolding({
   const handleGenerateImage = async () => {
     if (selectedIndex === null) return;
 
-    const related = data.relatedWords[selectedIndex];
+    const related = selectedRelated;
     if (!related) return;
 
     const base = displayBaseWord;
@@ -467,6 +497,7 @@ export default function CognitiveScaffolding({
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none"
               viewBox={`0 0 ${size} ${size}`}
+              preserveAspectRatio="none"
             >
               {graphNodes.map((node, index) => (
                 <line
@@ -488,28 +519,37 @@ export default function CognitiveScaffolding({
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.3 }}
-                className="px-4 py-2 rounded-full bg-primary-500/90 text-white text-sm font-semibold shadow-lg max-w-[200px] text-center"
+                className="px-4 py-2 rounded-full bg-primary-500/90 text-white text-sm font-semibold shadow-lg max-w-[220px]"
               >
-                {displayBaseWord}
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-center truncate">{displayBaseWord}</span>
+                  {isLoading && (
+                    <span className="inline-flex h-3 w-3 rounded-full border-2 border-white/70 border-t-transparent animate-spin" />
+                  )}
+                </div>
               </motion.div>
             </div>
 
-            {graphNodes.map((node, index) => {
-              const config = relationshipConfig[node.related.relationship];
-              const isSelected = selectedIndex === index;
-              return (
-                <motion.div
-                  key={`node-${index}`}
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.2 + index * 0.05 }}
-                  className="absolute"
-                  style={{
-                    left: `${node.x}px`,
-                    top: `${node.y}px`,
-                    transform: 'translate(-50%, -50%)',
-                  }}
-                >
+              {graphNodes.map((node, index) => {
+                const config = relationshipConfig[node.related.relationship];
+                const isSelected = selectedIndex === index;
+                return (
+                  <motion.div
+                    key={`node-${index}`}
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.2 + index * 0.05 }}
+                    className="absolute"
+                    style={{
+                      // Use percentage-based positioning so nodes stay
+                      // aligned with the SVG lines even when the container
+                      // is resized, avoiding the misalignment between nodes
+                      // and edges that can happen with fixed pixel offsets.
+                      left: `${(node.x / size) * 100}%`,
+                      top: `${(node.y / size) * 100}%`,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
                   <button
                     type="button"
                     onClick={() => setSelectedIndex(index)}
@@ -535,17 +575,42 @@ export default function CognitiveScaffolding({
         <div className="space-y-3">
           {selectedIndex === null ? (
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              点击上面的词汇节点，查看与{' '}
-              <span className="font-semibold">{displayBaseWord}</span>{' '}
-              的关键区别和典型使用场景。
+              {!hasRelatedWords && isLoading ? (
+                <>
+                  正在为{' '}
+                  <span className="font-semibold">{displayBaseWord}</span>{' '}
+                  构建词汇地图，很快就会出现和它关系最紧密的几个节点…
+                </>
+              ) : !hasRelatedWords ? (
+                <>
+                  目前暂时没有为{' '}
+                  <span className="font-semibold">{displayBaseWord}</span>{' '}
+                  找到合适的相关词，可以稍后再试一次或换一个单词。
+                </>
+              ) : hasAnyEnrichedDetails ? (
+                <>
+                  点击上面的词汇节点，查看与{' '}
+                  <span className="font-semibold">{displayBaseWord}</span>{' '}
+                  的关键区别和典型使用场景。
+                </>
+              ) : (
+                <>
+                  词汇地图已经为你找到了和{' '}
+                  <span className="font-semibold">{displayBaseWord}</span>{' '}
+                  关系最紧密的几个词。点击某个节点加载详细区别。
+                </>
+              )}
             </p>
           ) : (
             (() => {
-              const related = data.relatedWords[selectedIndex];
+              const related = selectedRelated;
               if (!related) {
                 return null;
               }
               const config = relationshipConfig[related.relationship];
+              const keyDifference = (related.keyDifference ?? '').trim();
+              const whenToUse = (related.whenToUse ?? '').trim();
+              const hasTextDetails = keyDifference.length > 0 || whenToUse.length > 0;
 
               return (
                 <motion.div
@@ -643,26 +708,36 @@ export default function CognitiveScaffolding({
                         </div>
                       )
                     ) : (
-                      <>
-                        <div className="flex items-start gap-2">
-                          <ArrowRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                          <p className="text-gray-700 dark:text-gray-300">
-                            <span className="font-medium text-gray-900 dark:text-gray-100">
-                              关键区别：
-                            </span>{' '}
-                            {related.keyDifference}
-                          </p>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <ArrowRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                          <p className="text-gray-700 dark:text-gray-300">
-                            <span className="font-medium text-gray-900 dark:text-gray-100">
-                              使用场景：
-                            </span>{' '}
-                            {related.whenToUse}
-                          </p>
-                        </div>
-                      </>
+                      hasTextDetails ? (
+                        <>
+                          {keyDifference && (
+                            <div className="flex items-start gap-2">
+                              <ArrowRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                              <p className="text-gray-700 dark:text-gray-300">
+                                <span className="font-medium text-gray-900 dark:text-gray-100">
+                                  关键区别：
+                                </span>{' '}
+                                {keyDifference}
+                              </p>
+                            </div>
+                          )}
+                          {whenToUse && (
+                            <div className="flex items-start gap-2">
+                              <ArrowRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                              <p className="text-gray-700 dark:text-gray-300">
+                                <span className="font-medium text-gray-900 dark:text-gray-100">
+                                  使用场景：
+                                </span>{' '}
+                                {whenToUse}
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          详细解释正在生成中，很快就会为你补充这对词汇的区别和使用场景。
+                        </p>
+                      )
                     )}
                   </div>
 

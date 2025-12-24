@@ -17,6 +17,18 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     # Optional image model for OpenRouter; falls back to `openrouter_model_id` when unset.
     openrouter_image_model_id: Optional[str] = None
+    # Optional per-layer model overrides and a generic "fast" model for cheaper,
+    # lower-latency calls. When unset, we fall back to `openrouter_model_id`.
+    openrouter_fast_model_id: Optional[str] = None
+    openrouter_layer3_model_id: Optional[str] = None
+    openrouter_layer4_fast_model_id: Optional[str] = None
+    openrouter_layer4_main_model_id: Optional[str] = None
+
+    # Optional flags for vendor-specific reasoning / thinking modes.
+    # These are wired through LLMOrchestrator and only applied to the
+    # corresponding layer calls when explicitly enabled.
+    openrouter_layer3_thinking_enabled: bool = False
+    openrouter_layer4_thinking_enabled: bool = False
 
     api_host: str = "0.0.0.0"
     api_port: int = 8000

@@ -3,7 +3,10 @@ import { XCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import type { CommonMistake } from '../shared/types';
 
 interface CommonMistakesProps {
-  mistakes: CommonMistake[];
+  mistakes?: CommonMistake[];
+  isLoading?: boolean;
+  errorMessage?: string | null;
+  onGenerate?: () => void;
 }
 
 type DiffPartType = 'equal' | 'add' | 'remove';
@@ -76,7 +79,14 @@ function diffSentencePair(wrong: string, correct: string): DiffResult {
   return { wrongParts, correctParts };
 }
 
-export default function CommonMistakes({ mistakes }: CommonMistakesProps) {
+export default function CommonMistakes({
+  mistakes,
+  isLoading,
+  errorMessage,
+  onGenerate,
+}: CommonMistakesProps) {
+  const hasMistakes = Array.isArray(mistakes) && mistakes.length > 0;
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
@@ -90,9 +100,33 @@ export default function CommonMistakes({ mistakes }: CommonMistakesProps) {
           Common Mistakes
         </h2>
       </div>
-      
-      <div className="space-y-4">
-        {mistakes.map((mistake, index) => {
+      {isLoading && !hasMistakes ? (
+        <div className="space-y-3 animate-pulse">
+          <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-2/3" />
+          <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-5/6" />
+          <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-4/6" />
+        </div>
+      ) : !hasMistakes && onGenerate ? (
+        <div className="glass glass-border rounded-lg p-4 text-xs text-gray-600 dark:text-gray-300">
+          <p className="mb-3">
+            还没有为这个单词生成常见错误。点击下面的按钮，让教练帮你找出最容易犯的坑。
+          </p>
+          <button
+            type="button"
+            onClick={onGenerate}
+            className="inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-100 dark:hover:bg-primary-900/60"
+          >
+            生成常见错误
+          </button>
+          {errorMessage && (
+            <p className="mt-2 text-[11px] text-red-500 dark:text-red-400">
+              {errorMessage}
+            </p>
+          )}
+        </div>
+      ) : hasMistakes ? (
+        <div className="space-y-4">
+          {mistakes!.map((mistake, index) => {
           const { wrongParts, correctParts } = diffSentencePair(
             mistake.wrong,
             mistake.correct,
@@ -174,9 +208,14 @@ export default function CommonMistakes({ mistakes }: CommonMistakesProps) {
                 </div>
               </div>
             </motion.div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : errorMessage ? (
+        <p className="text-[11px] text-red-500 dark:text-red-400">
+          {errorMessage}
+        </p>
+      ) : null}
     </motion.section>
   );
 }

@@ -3,9 +3,10 @@ import time
 
 from fastapi import APIRouter, HTTPException
 
-from app.models.request import LexicalImageRequest
-from app.models.response import LexicalImageResponse
+from app.models.request import LexicalImageRequest, LexicalMapTextRequest
+from app.models.response import LexicalImageResponse, Layer4Response
 from app.prompt_config import PROMPT_CONFIG
+from app.services.llm_orchestrator import llm_orchestrator
 from app.services.openrouter import openrouter_client
 from app.utils.error_handling import (
     APIConnectionError,
@@ -84,3 +85,57 @@ async def generate_lexical_image(
     _lexical_image_cache[cache_key] = (now, response)
 
     return response
+
+
+@router.post("/lexical-map/text", response_model=Layer4Response)
+async def generate_lexical_map_text(
+    request: LexicalMapTextRequest,
+) -> Layer4Response:
+    """
+    Generate Lexical Map text data (Layer 4) for a given word and context.
+
+    This reuses the same orchestration as `/api/analyze` but exposes a
+    JSON endpoint so the frontend can lazily load related words and
+    personalized coaching text.
+    """
+    logger.info(
+        "Generating lexical map text for word='%s' (context length=%d, level=%s)",
+        request.word,
+        len(request.context or ""),
+        request.english_level,
+    )
+
+    try:
+        return await llm_orchestrator.generate_layer4(
+            word=request.word,
+            context=request.context,
+            learning_history=request.learning_history,
+            english_level=request.english_level,
+            interests=request.interests,
+            blocked_titles=request.blocked_titles,
+            favorite_words=request.favorite_words,
+        )
+    except RateLimitError as e:
+        logger.warning("Lexical map text generation rate limited: %s", e)
+        raise HTTPException(
+            status_code=429,
+            detail="Lexical map text generation is being rate limited. Please try again later.",
+        )
+    except APIConnectionError as e:
+        logger.error("Lexical map text generation connection error: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="Lexical map text service is temporarily unavailable.",
+        )
+    except OpenRouterError as e:
+        logger.error("Lexical map text generation failed: %s", e)
+        raise HTTPException(
+            status_code=getattr(e, "status_code", 500) or 500,
+            detail=getattr(e, "message", "Lexical map text generation failed."),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.exception("Unexpected error during lexical map text generation: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail="Unexpected error while generating lexical map text.",
+        )

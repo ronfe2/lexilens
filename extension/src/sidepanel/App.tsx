@@ -22,8 +22,22 @@ import ProfilePage from './ProfilePage';
 import { API_URL } from '../shared/constants';
 import type { AnalysisRequest, InterestLink, InterestTopic } from '../shared/types';
 
+// Feature flag for future experiments that defer Lexical Map text (Layer 4)
+// to the `/api/lexical-map/text` endpoint instead of SSE. Kept `false`
+// for now to preserve the existing behavior; flip to `true` when running
+// deferred Lexical Map experiments.
+const USE_DEFERRED_LEXICAL_MAP_TEXT = false;
+
 function App() {
-  const { currentWord, analysisResult, isLoading, error, reset } = useAppStore();
+  const {
+    currentWord,
+    currentContext,
+    analysisResult,
+    isLoading,
+    error,
+    reset,
+    updateAnalysisLayer,
+  } = useAppStore();
   const { words: learningWords, addEntry } = useLearningHistory();
   const wordbook = useWordbook();
   const { onAnalysisComplete } = useAnalysisPersistence({
@@ -44,6 +58,12 @@ function App() {
   const [view, setView] = useState<'coach' | 'profile' | 'saved-entry'>('coach');
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [isLevelDialogOpen, setIsLevelDialogOpen] = useState(false);
+  const [isCommonMistakesLoading, setIsCommonMistakesLoading] = useState(false);
+  const [commonMistakesError, setCommonMistakesError] = useState<string | null>(
+    null,
+  );
+  const [isLexicalMapTextLoading, setIsLexicalMapTextLoading] = useState(false);
+  const [, setLexicalMapTextError] = useState<string | null>(null);
 
   const lastSelectionRef = useRef<AnalysisRequest | null>(null);
 
@@ -180,6 +200,170 @@ function App() {
     [topics, blockedTitles, addOrUpdateFromServer],
   );
 
+  const handleEnsureLexicalMapTextLoaded = useCallback(async () => {
+    if (!USE_DEFERRED_LEXICAL_MAP_TEXT) {
+      return;
+    }
+
+    const selection = lastSelectionRef.current;
+    if (!selection || !selection.word || !selection.context) {
+      return;
+    }
+
+    // If Lexical Map text is already available for this headword, no need
+    // to call the dedicated text endpoint again.
+    const { analysisResult: latestAnalysis } = useAppStore.getState();
+    if (
+      latestAnalysis &&
+      latestAnalysis.word === selection.word &&
+      latestAnalysis.layer4
+    ) {
+      return;
+    }
+
+    if (isLexicalMapTextLoading) {
+      return;
+    }
+
+    setLexicalMapTextError(null);
+    setIsLexicalMapTextLoading(true);
+
+    try {
+      const payload: {
+        word: string;
+        context: string;
+        learning_history?: string[];
+        english_level?: string;
+        interests?: {
+          id: string;
+          title: string;
+          summary: string;
+          urls: string[];
+        }[];
+        blocked_titles?: string[];
+        favorite_words?: string[];
+      } = {
+        word: selection.word,
+        context: selection.context,
+        learning_history: selection.learningHistory,
+        english_level: selection.englishLevel,
+      };
+
+      if (selection.interests && selection.interests.length > 0) {
+        payload.interests = (selection.interests as InterestTopic[]).map(
+          (topic) => ({
+            id: topic.id,
+            title: topic.title,
+            summary: topic.summary,
+            urls: topic.links.map((link) => link.url),
+          }),
+        );
+      }
+
+      if (selection.blockedTitles && selection.blockedTitles.length > 0) {
+        payload.blocked_titles = selection.blockedTitles;
+      }
+
+      if (selection.favoriteWords && selection.favoriteWords.length > 0) {
+        payload.favorite_words = selection.favoriteWords;
+      }
+
+      const resp = await fetch(`${API_URL}/api/lexical-map/text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Lexical Map text request failed with status ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      const relatedWordsRaw = (data as any).related_words ?? [];
+      const personalized = (data as any).personalized ?? undefined;
+
+      const cognitive = {
+        relatedWords: Array.isArray(relatedWordsRaw)
+          ? relatedWordsRaw.map((rw: any) => ({
+              word: rw.word,
+              relationship: rw.relationship,
+              keyDifference: rw.difference,
+              whenToUse: rw.when_to_use,
+            }))
+          : [],
+        personalizedTip: personalized,
+      };
+
+      updateAnalysisLayer('layer4', cognitive);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        '[LexiLens] Failed to load Lexical Map text via /api/lexical-map/text',
+        err,
+      );
+      setLexicalMapTextError('词汇地图加载失败，请稍后重试。');
+    } finally {
+      setIsLexicalMapTextLoading(false);
+    }
+  }, [
+    isLexicalMapTextLoading,
+    updateAnalysisLayer,
+  ]);
+
+  const handleGenerateCommonMistakes = useCallback(async () => {
+    if (isCommonMistakesLoading) {
+      return;
+    }
+
+    const selection = lastSelectionRef.current;
+    if (!selection || !selection.word || !selection.context) {
+      return;
+    }
+
+    setCommonMistakesError(null);
+    setIsCommonMistakesLoading(true);
+
+    try {
+      const resp = await fetch(`${API_URL}/api/analyze/mistakes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          word: selection.word,
+          context: selection.context,
+          english_level: selection.englishLevel,
+        }),
+      });
+
+      if (!resp.ok) {
+        throw new Error(
+          `Common Mistakes request failed with status ${resp.status}`,
+        );
+      }
+
+      const data = await resp.json();
+      const rawMistakes = (data as any).mistakes ?? [];
+      const mistakes = Array.isArray(rawMistakes) ? rawMistakes : [];
+
+      updateAnalysisLayer('layer3', mistakes);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        '[LexiLens] Failed to generate Common Mistakes via /api/analyze/mistakes',
+        err,
+      );
+      setCommonMistakesError('常见错误生成失败，请稍后重试。');
+    } finally {
+      setIsCommonMistakesLoading(false);
+    }
+  }, [
+    isCommonMistakesLoading,
+    updateAnalysisLayer,
+  ]);
+
   const handleSelection = useCallback(
     (data: any) => {
       if (!data?.word || !data?.context) return;
@@ -206,6 +390,8 @@ function App() {
         interests: topics,
         blockedTitles,
         favoriteWords,
+        // 默认只请求 Layer 2 和 4，将 Common Mistakes 延迟到用户点击时再生成。
+        layers: [2, 4],
       };
 
       lastSelectionRef.current = request;
@@ -222,6 +408,10 @@ function App() {
         timestamp: Date.now(),
       });
 
+      // Reset deferred Common Mistakes state for the new selection.
+      setIsCommonMistakesLoading(false);
+      setCommonMistakesError(null);
+
       // Explicit LexiLens triggers (context menu, floating button under
       // selection, or restored selection from background) should start
       // analysis immediately.
@@ -237,6 +427,8 @@ function App() {
       blockedTitles,
       favoriteWords,
       updateInterestsFromUsage,
+      setIsCommonMistakesLoading,
+      setCommonMistakesError,
     ],
   );
 
@@ -308,6 +500,11 @@ function App() {
     !!analysisResult?.layer1 ||
     !!analysisResult?.layer3 ||
     !!analysisResult?.layer4;
+
+  const shouldShowCommonMistakesSection =
+    !!analysisResult &&
+    !!currentContext &&
+    !!(analysisResult.word || currentWord);
 
   const activeWord = analysisResult?.word || currentWord || '';
   const normalizedActiveWord = activeWord.trim();
@@ -417,12 +614,14 @@ function App() {
                 word={savedWord}
                 personalizedTip={savedAnalysis.layer4?.personalizedTip}
                 profile={profile}
+                isLoading={false}
               />
 
               {savedAnalysis.layer4 && (
                 <CognitiveScaffolding
                   data={savedAnalysis.layer4}
                   word={savedWord}
+                  isLoading={false}
                   enableAsyncImageWarmup={false}
                   favoriteWords={favoriteWords}
                   onLexicalMapShown={(word) => {
@@ -482,35 +681,67 @@ function App() {
                 word={activeWord}
                 personalizedTip={analysisResult?.layer4?.personalizedTip}
                 profile={profile}
+                isLoading={isLoading}
               />
 
-              {analysisResult?.layer4 && (
-                <CognitiveScaffolding
-                  data={analysisResult.layer4}
-                  word={activeWord}
-                  enableAsyncImageWarmup={profile.nickname === 'Lexi Learner'}
-                  favoriteWords={favoriteWords}
-                  onLexicalMapShown={(word) => {
-                    wordbook.incrementStageForWord(
-                      word,
-                      'lexical-map',
-                    );
-                  }}
-                  onImageGenerated={({ baseWord, relatedWord, imageUrl, prompt }) => {
-                    if (!normalizedActiveWord) return;
-                    wordbook.recordLexicalImage({
-                      word: normalizedActiveWord,
-                      baseWord,
-                      relatedWord,
-                      imageUrl,
-                      prompt,
-                    });
-                  }}
-                />
-              )}
+              {/*
+                在加载阶段也先渲染 Lexical Map 区块，用空数据占位，这样用户能
+                立即看到结构，并在相关词尚未返回时显示轻量级 loading 提示。
+              */}
+              {(() => {
+                const shouldShowLexicalMapSection =
+                  !!analysisResult && !!(analysisResult.word || currentWord);
+                const lexicalMapData =
+                  analysisResult?.layer4 ?? ({
+                    relatedWords: [],
+                  } as any);
+                const lexicalMapIsLoading =
+                  isLexicalMapTextLoading ||
+                  (isLoading &&
+                    !(
+                      analysisResult?.layer4 &&
+                      Array.isArray(analysisResult.layer4.relatedWords) &&
+                      analysisResult.layer4.relatedWords.length > 0
+                    ));
 
-              {analysisResult?.layer3 && (
-                <CommonMistakes mistakes={analysisResult.layer3} />
+                if (!shouldShowLexicalMapSection) return null;
+
+                return (
+                  <CognitiveScaffolding
+                    data={lexicalMapData}
+                    word={activeWord}
+                    isLoading={lexicalMapIsLoading}
+                    enableAsyncImageWarmup={profile.nickname === 'Lexi Learner'}
+                    favoriteWords={favoriteWords}
+                    onLexicalMapShown={(word) => {
+                      wordbook.incrementStageForWord(word, 'lexical-map');
+                      void handleEnsureLexicalMapTextLoaded();
+                    }}
+                    onImageGenerated={({ baseWord, relatedWord, imageUrl, prompt }) => {
+                      if (!normalizedActiveWord) return;
+                      wordbook.recordLexicalImage({
+                        word: normalizedActiveWord,
+                        baseWord,
+                        relatedWord,
+                        imageUrl,
+                        prompt,
+                      });
+                    }}
+                  />
+                );
+              })()}
+
+              {shouldShowCommonMistakesSection && (
+                <CommonMistakes
+                  mistakes={analysisResult?.layer3}
+                  isLoading={isCommonMistakesLoading}
+                  errorMessage={commonMistakesError}
+                  onGenerate={
+                    !analysisResult?.layer3 || analysisResult.layer3.length === 0
+                      ? handleGenerateCommonMistakes
+                      : undefined
+                  }
+                />
               )}
 
               {isLoading && (
@@ -578,6 +809,8 @@ function App() {
                 interests: topics,
                 blockedTitles,
                 favoriteWords,
+                // 保持与主视图一致，只预先生成 Layer 2 和 4。
+                layers: [2, 4],
               };
 
               lastSelectionRef.current = request;

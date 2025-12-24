@@ -12,6 +12,10 @@ export interface AnalysisRequest {
   blockedTitles?: string[];
   // Words explicitly marked as favorites in the learner's wordbook
   favoriteWords?: string[];
+  // Optional list of backend layers (2, 3, 4) to compute; Layer 1 is always streamed.
+  // When omitted, the frontend will default to [2,4] so Common Mistakes (Layer 3)
+  // can be generated lazily when the user clicks the section.
+  layers?: number[];
 }
 
 export interface BehaviorPattern {
@@ -34,8 +38,12 @@ export interface CommonMistake {
 export interface RelatedWord {
   word: string;
   relationship: 'synonym' | 'antonym' | 'broader' | 'narrower' | 'collocate';
-  keyDifference: string;
-  whenToUse: string;
+  // When Lexical Map operates in a candidate-first mode, the frontend may
+  // temporarily receive related words that only include `word` and
+  // `relationship` with details filled in later. Keep these fields optional
+  // so the UI can gracefully handle that partial state.
+  keyDifference?: string;
+  whenToUse?: string;
 }
 
 export interface CognitiveScaffolding {
