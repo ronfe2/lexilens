@@ -3,6 +3,7 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any, List, Optional
 
+from app.prompt_config import PROMPT_CONFIG
 from app.models.interests import InterestTopicPayload
 from app.models.request import AnalyzeRequest
 from app.models.response import (
@@ -169,10 +170,8 @@ class LLMOrchestrator:
         The model receives the current topics and a list of blocked titles,
         and must return the full updated topics list.
         """
-        system_prompt = (
-            "You are an assistant that organizes a single learner's reading "
-            "interests into a few stable topics."
-        )
+        prompt_cfg = PROMPT_CONFIG["summarize_interests"]
+        system_prompt = prompt_cfg["system_prompt"]
 
         existing_topics = existing_topics or []
         blocked_titles = blocked_titles or []
@@ -185,36 +184,18 @@ class LLMOrchestrator:
                 # Fallback in case plain dicts are passed in.
                 existing_for_prompt.append(dict(topic))
 
-        usage_summary = f"""Latest LexiLens usage:
-- word: {word}
-- context: {context}
-- page_type: {page_type or "unknown"}
-- url: {url or "unknown"}
-"""
+        usage_summary = prompt_cfg["usage_summary_template"].format(
+            word=word,
+            context=context,
+            page_type=page_type or "unknown",
+            url=url or "unknown",
+        )
 
-        user_prompt = f"""{usage_summary}
-
-Existing topics (may be empty). Each has an id, title, summary and example URLs:
-{existing_for_prompt}
-
-Blocked titles (topics removed by the user; NEVER bring them back): {blocked_titles}
-
-Task:
-1. Decide whether this latest usage should:
-   - be merged into one existing topic, or
-   - create a new topic, or
-   - be ignored if it does not represent a meaningful interest.
-2. Always return the FULL list of topics the extension should store after this update.
-3. Each topic object must contain:
-   - id: short stable identifier (slug-like, no spaces, e.g. "football_premier_league").
-   - title: short Chinese or bilingual title describing the interest.
-   - summary: 1 short sentence in Chinese describing what the learner does or follows.
-   - urls: array of URLs (strings) belonging to this topic. Include the latest URL \
-when appropriate.
-4. If you update an existing topic, keep its id exactly the same.
-5. Never create or return topics whose title is in the blocked titles list.
-
-Return ONLY a JSON array of topic objects, without any surrounding explanation."""
+        user_prompt = prompt_cfg["user_prompt_template"].format(
+            usage_summary=usage_summary,
+            existing_for_prompt=existing_for_prompt,
+            blocked_titles=blocked_titles,
+        )
 
         response = await self.client.complete_json(
             prompt=user_prompt,

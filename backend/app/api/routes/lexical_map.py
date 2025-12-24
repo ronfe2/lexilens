@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.models.request import LexicalImageRequest
 from app.models.response import LexicalImageResponse
+from app.prompt_config import PROMPT_CONFIG
 from app.services.openrouter import openrouter_client
 from app.utils.error_handling import (
     APIConnectionError,
@@ -49,12 +50,8 @@ async def generate_lexical_image(
         ts, cached_value = cached
         if now - ts < CACHE_TTL_SECONDS:
             return cached_value
-
-    prompt = (
-        'Draw an XKCD style colored manga depicting and explaining the difference '
-        f'between the word "{base_word}" and "{related_word}" to learners using English, '
-        'with "LexiLens" written at the bottom right corner without any logos or icons'
-    )
+    prompt_template = PROMPT_CONFIG["lexical_image"]["prompt_template"]
+    prompt = prompt_template.format(base_word=base_word, related_word=related_word)
 
     try:
         image_url = await openrouter_client.generate_image(prompt=prompt)
