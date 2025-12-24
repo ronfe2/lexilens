@@ -309,6 +309,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'LEXILENS_OPEN_SAVED_ENTRY_URL') {
+    const url =
+      typeof message.url === 'string' && message.url.trim().length > 0
+        ? message.url.trim()
+        : null;
+
+    if (!url) {
+      sendResponse({ success: false, error: 'missing-url' });
+      return false;
+    }
+
+    try {
+      chrome.tabs.create({ url });
+      sendResponse({ success: true });
+    } catch (err) {
+      console.warn('Failed to open saved entry URL', err);
+      sendResponse({ success: false });
+    }
+
+    return true;
+  }
+
   if (message.type === 'LEXILENS_SHOW_LEXICAL_IMAGE') {
     // Forward the image overlay request to the active tab's content script and
     // always respond to the side panel, even if the content script doesn't send

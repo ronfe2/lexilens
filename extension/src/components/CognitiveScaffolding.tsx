@@ -11,6 +11,20 @@ interface CognitiveScaffoldingProps {
   // When true, enable the async "warmup" request for the default demo
   // profile (Lexi Learner) so the image is ready before the user clicks.
   enableAsyncImageWarmup?: boolean;
+  // Headwords the learner has explicitly marked as favorites; used to
+  // prioritize default related nodes in the Lexical Map.
+  favoriteWords?: string[];
+  // Fired whenever the user successfully generates a Lexical Map image
+  // for a given base/related word pair.
+  onImageGenerated?: (params: {
+    baseWord: string;
+    relatedWord: string;
+    imageUrl: string;
+    prompt?: string;
+  }) => void;
+  // Fired once per headword whenever the Lexical Map view is shown so
+  // callers can record an additional exposure toward mastery.
+  onLexicalMapShown?: (word: string) => void;
 }
 
 interface LexicalImageResponse {
@@ -29,12 +43,16 @@ const relationshipConfig = {
 } as const;
 
 // Pick a default related word with the following priority:
-// 1) "synonym" relationships first
-// 2) Within that group (or all others when no synonym), smallest word in
-//    ascending alphabetical order.
+// 1) Related words that are also in the user's favorite word list
+//    (case-insensitive), smallest word in ascending alphabetical order.
+// 2) Otherwise, fall back to the previous behavior:
+//    a) "synonym" relationships first
+//    b) Within that group (or all others when no synonym), smallest
+//       word in ascending alphabetical order.
 function selectPreferredRelatedIndex(
   relatedWords: CognitiveScaffoldingType['relatedWords'],
   maxCount: number,
+  favoriteWords?: string[],
 ): number | null {
   if (!relatedWords || relatedWords.length === 0 || maxCount <= 0) {
     return null;
@@ -48,11 +66,32 @@ function selectPreferredRelatedIndex(
     return sorted[0]?.index ?? null;
   };
 
+  const favoriteSet =
+    favoriteWords && favoriteWords.length
+      ? new Set(
+          favoriteWords
+            .map((w) =>
+              typeof w === 'string' ? w.trim().toLowerCase() : '',
+            )
+            .filter((w) => w.length > 0),
+        )
+      : null;
+
   const normalized = available.map((rw, index) => ({
     index,
     relationship: rw.relationship,
     word: (rw.word ?? '').toString().toLowerCase(),
   }));
+
+  if (favoriteSet && favoriteSet.size > 0) {
+    const favoriteCandidates = normalized.filter((item) =>
+      favoriteSet.has(item.word),
+    );
+    const favoriteIndex = pickFrom(favoriteCandidates);
+    if (favoriteIndex !== null) {
+      return favoriteIndex;
+    }
+  }
 
   const synonymCandidates = normalized.filter((item) => item.relationship === 'synonym');
   const synonymIndex = pickFrom(synonymCandidates);
@@ -88,6 +127,9 @@ export default function CognitiveScaffolding({
   data,
   word,
   enableAsyncImageWarmup = false,
+  favoriteWords,
+  onImageGenerated,
+  onLexicalMapShown,
 }: CognitiveScaffoldingProps) {
   const rawBaseWord = word || 'Word';
   const displayBaseWord = getLexicalBaseWord(rawBaseWord) || rawBaseWord;
@@ -135,8 +177,9 @@ export default function CognitiveScaffolding({
 
   // Warm up the lexical image request in the background for the default
   // demo profile (Lexi Learner). This uses the priority rules:
-  // 1) "synonym" relationship first
-  // 2) Alphabetical order within the candidate group
+  // 1) Favor related words that are marked as favorites by the learner.
+  // 2) Otherwise, "synonym" relationship first.
+  // 3) Alphabetical order within the candidate group.
   useEffect(() => {
     if (!enableAsyncImageWarmup) return;
     if (!data.relatedWords || data.relatedWords.length === 0) return;
@@ -144,6 +187,7 @@ export default function CognitiveScaffolding({
     const preferredIndex = selectPreferredRelatedIndex(
       data.relatedWords,
       positions.length,
+      favoriteWords,
     );
     if (preferredIndex === null) return;
 
@@ -194,6 +238,15 @@ export default function CognitiveScaffolding({
             isLoading: false,
             error: null,
           }));
+
+          if (json.image_url) {
+            onImageGenerated?.({
+              baseWord,
+              relatedWord,
+              imageUrl: json.image_url,
+              prompt: json.prompt,
+            });
+          }
         }
       } catch (err) {
         // eslint-disable-next-line no-console
@@ -222,7 +275,28 @@ export default function CognitiveScaffolding({
         }
       }
     })();
-  }, [enableAsyncImageWarmup, data.relatedWords, displayBaseWord, positions.length]);
+  }, [
+    enableAsyncImageWarmup,
+    data.relatedWords,
+    displayBaseWord,
+    positions.length,
+    favoriteWords,
+    onImageGenerated,
+  ]);
+
+  // Fire a one-time exposure callback whenever the Lexical Map is shown
+  // for a new headword so the wordbook can increment mastery.
+  const lastExposureWordRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!onLexicalMapShown) return;
+    const normalized = (word ?? '').trim();
+    if (!normalized) return;
+    const lowered = normalized.toLowerCase();
+    if (lastExposureWordRef.current === lowered) return;
+    lastExposureWordRef.current = lowered;
+    onLexicalMapShown(normalized);
+  }, [onLexicalMapShown, word]);
 
   // Reset image state whenever the selected node or base word changes.
   useEffect(() => {
@@ -298,12 +372,22 @@ export default function CognitiveScaffolding({
           prefetchStatusRef.current === 'success' &&
           prefetchResultRef.current?.image_url
         ) {
+          const imageUrl = prefetchResultRef.current.image_url;
+          const prompt = prefetchResultRef.current.prompt;
+
           setImageState((prev) => ({
             ...prev,
-            url: prefetchResultRef.current!.image_url,
+            url: imageUrl,
             isLoading: false,
             error: null,
           }));
+
+          onImageGenerated?.({
+            baseWord: base,
+            relatedWord,
+            imageUrl,
+            prompt,
+          });
         }
         delayTimerRef.current = null;
       }, delayMs);
@@ -330,6 +414,15 @@ export default function CognitiveScaffolding({
         isLoading: false,
         error: null,
       }));
+
+      if (json.image_url) {
+        onImageGenerated?.({
+          baseWord: base,
+          relatedWord,
+          imageUrl: json.image_url,
+          prompt: json.prompt,
+        });
+      }
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('Lexical image generation failed', err);

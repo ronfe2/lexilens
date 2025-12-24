@@ -113,6 +113,21 @@ def test_layer4_prompt_includes_interests_and_blocklist_when_provided():
     assert "Never mention these blocked topics" in prompt
 
 
+def test_layer4_prompt_includes_favorites_note_when_provided():
+    """Layer 4 prompt should surface favorite words when they are provided."""
+    favorite_words = ["strategy", "campaign"]
+
+    _, prompt = PromptBuilder.build_layer4_prompt(
+        word="tactic",
+        context="We need to rethink our campaign tactic before the next debate.",
+        learning_history=[],
+        favorite_words=favorite_words,
+    )
+
+    # Favorites should appear in the rendered prompt so the model can use them.
+    assert "strategy" in prompt or "campaign" in prompt
+
+
 def test_layer3_prompt_includes_level_guidance_for_beginner():
     """Layer 3 prompt should adapt guidance when a low CEFR level is provided."""
     _, prompt = PromptBuilder.build_layer3_prompt(

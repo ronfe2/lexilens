@@ -14,6 +14,10 @@ interface SSEEvent<T = unknown> {
   data?: T;
 }
 
+interface UseStreamingAnalysisOptions {
+  onAnalysisComplete?: (request: AnalysisRequest) => void;
+}
+
 function parseSSEEvent(rawEvent: string): SSEEvent | null {
   const lines = rawEvent.split('\n');
   let eventName = 'message';
@@ -54,7 +58,7 @@ function parseSSEEvent(rawEvent: string): SSEEvent | null {
   return parsed;
 }
 
-export function useStreamingAnalysis() {
+export function useStreamingAnalysis(options?: UseStreamingAnalysisOptions) {
   const {
     setCurrentWord,
     setCurrentContext,
@@ -64,6 +68,7 @@ export function useStreamingAnalysis() {
     setError,
   } = useAppStore();
 
+  const onAnalysisComplete = options?.onAnalysisComplete;
   const controllerRef = useRef<AbortController | null>(null);
 
   const stop = useCallback(() => {
@@ -219,6 +224,7 @@ export function useStreamingAnalysis() {
             urls: string[];
           }[];
           blocked_titles?: string[];
+          favorite_words?: string[];
         } = {
           word: request.word,
           context: request.context,
@@ -241,6 +247,10 @@ export function useStreamingAnalysis() {
 
         if (request.blockedTitles && request.blockedTitles.length > 0) {
           payload.blocked_titles = request.blockedTitles;
+        }
+
+        if (request.favoriteWords && request.favoriteWords.length > 0) {
+          payload.favorite_words = request.favoriteWords;
         }
 
         const response = await fetch(`${API_URL}/api/analyze`, {
@@ -300,6 +310,10 @@ export function useStreamingAnalysis() {
 
         // Ensure loading flag is cleared if "done" was never reached
         setLoading(false);
+
+        if (typeof onAnalysisComplete === 'function') {
+          onAnalysisComplete(request);
+        }
       } catch (err: any) {
         if (err?.name === 'AbortError') {
           // Stream cancelled intentionally
@@ -319,6 +333,7 @@ export function useStreamingAnalysis() {
       setLoading,
       setError,
       stop,
+      onAnalysisComplete,
     ],
   );
 

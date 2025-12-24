@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import Header from '../components/Header';
 import CommonMistakes from '../components/CommonMistakes';
@@ -11,6 +12,8 @@ import UserProfileCard from '../components/UserProfileCard';
 import { useAppStore } from '../store/appStore';
 import { useStreamingAnalysis } from './hooks/useStreamingAnalysis';
 import { useLearningHistory } from './hooks/useLearningHistory';
+import { useWordbook } from './hooks/useWordbook';
+import { useAnalysisPersistence } from './hooks/useAnalysisPersistence';
 import { useTheme } from './hooks/useTheme';
 import { useUserProfile, getCefrForPrompt } from './hooks/useUserProfile';
 import { useInterests } from './hooks/useInterests';
@@ -22,13 +25,24 @@ import type { AnalysisRequest, InterestLink, InterestTopic } from '../shared/typ
 function App() {
   const { currentWord, analysisResult, isLoading, error, reset } = useAppStore();
   const { words: learningWords, addEntry } = useLearningHistory();
-  const { startAnalysis } = useStreamingAnalysis();
+  const wordbook = useWordbook();
+  const { onAnalysisComplete } = useAnalysisPersistence({
+    upsertEntryFromAnalysis: wordbook.upsertEntryFromAnalysis,
+    incrementStageForWord: wordbook.incrementStageForWord,
+  });
+  const { startAnalysis } = useStreamingAnalysis({ onAnalysisComplete });
   const { theme, toggleTheme } = useTheme();
   const { profile, updateProfile } = useUserProfile();
   const interests = useInterests();
   const { topics, blockedTitles, addOrUpdateFromServer } = interests;
 
-  const [view, setView] = useState<'coach' | 'profile'>('coach');
+  const favoriteWords = wordbook.entries
+    .filter((entry) => entry.isFavorite)
+    .map((entry) => entry.word)
+    .filter((word) => typeof word === 'string' && word.trim().length > 0);
+
+  const [view, setView] = useState<'coach' | 'profile' | 'saved-entry'>('coach');
+  const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [isLevelDialogOpen, setIsLevelDialogOpen] = useState(false);
 
   const lastSelectionRef = useRef<AnalysisRequest | null>(null);
@@ -191,6 +205,7 @@ function App() {
         url: data.url,
         interests: topics,
         blockedTitles,
+        favoriteWords,
       };
 
       lastSelectionRef.current = request;
@@ -220,6 +235,7 @@ function App() {
       profile.englishLevel,
       topics,
       blockedTitles,
+      favoriteWords,
       updateInterestsFromUsage,
     ],
   );
@@ -262,10 +278,258 @@ function App() {
     }
   };
 
+  const handleOpenSavedEntryLink = useCallback((url?: string) => {
+    if (!url || typeof url !== 'string') return;
+
+    try {
+      chrome.runtime.sendMessage(
+        { type: 'LEXILENS_OPEN_SAVED_ENTRY_URL', url },
+        (response) => {
+          const lastError = chrome.runtime.lastError;
+          if (lastError || !response || response.success !== true) {
+            try {
+              chrome.tabs?.create({ url });
+            } catch {
+              // If even this fails, there is not much we can do – fail silently.
+            }
+          }
+        },
+      );
+    } catch {
+      try {
+        chrome.tabs?.create({ url });
+      } catch {
+        // Ignore – opening the tab is a convenience, not critical path.
+      }
+    }
+  }, []);
+
   const hasAnalysis =
     !!analysisResult?.layer1 ||
     !!analysisResult?.layer3 ||
     !!analysisResult?.layer4;
+
+  const activeWord = analysisResult?.word || currentWord || '';
+  const normalizedActiveWord = activeWord.trim();
+
+  const isActiveWordFavorite =
+    !!normalizedActiveWord &&
+    wordbook.entries.some(
+      (entry) =>
+        entry.isFavorite &&
+        entry.word.toLowerCase() === normalizedActiveWord.toLowerCase(),
+    );
+
+  const activeSavedEntry =
+    view === 'saved-entry' && activeEntryId
+      ? wordbook.entries.find((entry) => entry.id === activeEntryId)
+      : undefined;
+
+  const activeSnapshot = activeSavedEntry?.latestSnapshot;
+  const savedAnalysis = activeSnapshot?.analysis;
+  const savedWord =
+    savedAnalysis?.word || activeSavedEntry?.word || '';
+  const normalizedSavedWord = savedWord.trim();
+
+  const isSavedWordFavorite =
+    !!normalizedSavedWord &&
+    wordbook.entries.some(
+      (entry) =>
+        entry.isFavorite &&
+        entry.word.toLowerCase() === normalizedSavedWord.toLowerCase(),
+    );
+
+  let mainContent: ReactNode;
+
+  if (view === 'profile') {
+    mainContent = (
+      <div className="flex-1 overflow-y-auto">
+        <ProfilePage
+          profile={profile}
+          onUpdateProfile={updateProfile}
+          onBack={() => setView('coach')}
+          onLevelClick={() => setIsLevelDialogOpen(true)}
+          interests={interests}
+          wordbook={wordbook}
+          onOpenWordbookEntry={(id) => {
+            setActiveEntryId(id);
+            setView('saved-entry');
+          }}
+          activeEntryId={activeEntryId}
+        />
+      </div>
+    );
+  } else if (view === 'saved-entry') {
+    mainContent = (
+      <>
+        {activeSnapshot?.request.url && (
+          <div className="px-6 pb-2">
+            <div className="glass glass-border rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  来自：
+                  {(() => {
+                    try {
+                      const url = new URL(activeSnapshot.request.url as string);
+                      return url.hostname;
+                    } catch {
+                      return activeSnapshot.request.url;
+                    }
+                  })()}
+                </p>
+                {activeSnapshot.request.context && (
+                  <p className="text-[11px] text-gray-600 dark:text-gray-300 line-clamp-1">
+                    {activeSnapshot.request.context}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleOpenSavedEntryLink(activeSnapshot.request.url)}
+                className="flex-shrink-0 inline-flex items-center justify-center rounded-full border border-primary-500 px-3 py-1.5 text-[11px] font-medium text-primary-600 hover:bg-primary-50 dark:border-primary-400 dark:text-primary-200 dark:hover:bg-primary-900/40"
+              >
+                打开原文链接
+              </button>
+            </div>
+          </div>
+        )}
+
+        <Header
+          word={savedWord}
+          pronunciation={savedAnalysis?.pronunciation}
+          definition={savedAnalysis?.layer1?.definition}
+          isFavorite={isSavedWordFavorite}
+          onAddToWordlistClick={
+            normalizedSavedWord
+              ? () => wordbook.toggleFavoriteByWord(normalizedSavedWord)
+              : undefined
+          }
+        />
+
+        <div className="flex-1 overflow-y-auto space-y-1 pb-4">
+          {!savedAnalysis ? (
+            <div className="px-6 pt-4 text-xs text-gray-500 dark:text-gray-400">
+              没有找到该单词的完整解释快照，可以在网页中重新选中该单词并运行一次 LexiLens。
+            </div>
+          ) : (
+            <>
+              <CoachSummary
+                word={savedWord}
+                personalizedTip={savedAnalysis.layer4?.personalizedTip}
+                profile={profile}
+              />
+
+              {savedAnalysis.layer4 && (
+                <CognitiveScaffolding
+                  data={savedAnalysis.layer4}
+                  word={savedWord}
+                  enableAsyncImageWarmup={false}
+                  favoriteWords={favoriteWords}
+                  onLexicalMapShown={(word) => {
+                    wordbook.incrementStageForWord(
+                      word,
+                      'lexical-map',
+                    );
+                  }}
+                  onImageGenerated={({ baseWord, relatedWord, imageUrl, prompt }) => {
+                    if (!normalizedSavedWord) return;
+                    wordbook.recordLexicalImage({
+                      word: normalizedSavedWord,
+                      baseWord,
+                      relatedWord,
+                      imageUrl,
+                      prompt,
+                    });
+                  }}
+                />
+              )}
+
+              {savedAnalysis.layer3 && (
+                <CommonMistakes mistakes={savedAnalysis.layer3} />
+              )}
+            </>
+          )}
+        </div>
+      </>
+    );
+  } else if (!currentWord && !hasAnalysis && !isLoading && !error) {
+    mainContent = (
+      <div className="flex-1 flex items-center justify-center px-6 pb-6">
+        <EmptyState />
+      </div>
+    );
+  } else {
+    mainContent = (
+      <>
+        <Header
+          word={activeWord}
+          pronunciation={analysisResult?.pronunciation}
+          definition={analysisResult?.layer1?.definition}
+          isFavorite={isActiveWordFavorite}
+          onAddToWordlistClick={
+            normalizedActiveWord
+              ? () => wordbook.toggleFavoriteByWord(normalizedActiveWord)
+              : undefined
+          }
+        />
+
+        <div className="flex-1 overflow-y-auto space-y-1 pb-4">
+          {error ? (
+            <ErrorDisplay message={error} onRetry={handleRetry} />
+          ) : (
+            <>
+              <CoachSummary
+                word={activeWord}
+                personalizedTip={analysisResult?.layer4?.personalizedTip}
+                profile={profile}
+              />
+
+              {analysisResult?.layer4 && (
+                <CognitiveScaffolding
+                  data={analysisResult.layer4}
+                  word={activeWord}
+                  enableAsyncImageWarmup={profile.nickname === 'Lexi Learner'}
+                  favoriteWords={favoriteWords}
+                  onLexicalMapShown={(word) => {
+                    wordbook.incrementStageForWord(
+                      word,
+                      'lexical-map',
+                    );
+                  }}
+                  onImageGenerated={({ baseWord, relatedWord, imageUrl, prompt }) => {
+                    if (!normalizedActiveWord) return;
+                    wordbook.recordLexicalImage({
+                      word: normalizedActiveWord,
+                      baseWord,
+                      relatedWord,
+                      imageUrl,
+                      prompt,
+                    });
+                  }}
+                />
+              )}
+
+              {analysisResult?.layer3 && (
+                <CommonMistakes mistakes={analysisResult.layer3} />
+              )}
+
+              {isLoading && (
+                <div className="flex justify-center py-6">
+                  <LoadingSpinner
+                    text={
+                      analysisResult?.layer1
+                        ? 'Deepening the pattern, exploring more contexts...'
+                        : 'LexiLens is reading the sentence and summoning your coach...'
+                    }
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
@@ -285,71 +549,7 @@ function App() {
           />
         </div>
 
-        {view === 'profile' ? (
-          <div className="flex-1 overflow-y-auto">
-            <ProfilePage
-              profile={profile}
-              onUpdateProfile={updateProfile}
-              onBack={() => setView('coach')}
-              onLevelClick={() => setIsLevelDialogOpen(true)}
-              interests={interests}
-            />
-          </div>
-        ) : (!currentWord && !hasAnalysis && !isLoading && !error) ? (
-          <div className="flex-1 flex items-center justify-center px-6 pb-6">
-            <EmptyState />
-          </div>
-        ) : (
-          <>
-            <Header
-              word={analysisResult?.word || currentWord || ''}
-              pronunciation={analysisResult?.pronunciation}
-              definition={analysisResult?.layer1?.definition}
-              onAddToWordlistClick={() => {
-                // eslint-disable-next-line no-console
-                console.log('[LexiLens] Add to wordlist clicked (coming soon)');
-              }}
-            />
-
-            <div className="flex-1 overflow-y-auto space-y-1 pb-4">
-              {error ? (
-                <ErrorDisplay message={error} onRetry={handleRetry} />
-              ) : (
-                <>
-                  <CoachSummary
-                    word={analysisResult?.word || currentWord || ''}
-                    personalizedTip={analysisResult?.layer4?.personalizedTip}
-                    profile={profile}
-                  />
-
-                  {analysisResult?.layer4 && (
-                    <CognitiveScaffolding
-                      data={analysisResult.layer4}
-                      word={analysisResult.word || currentWord || ''}
-                      enableAsyncImageWarmup={profile.nickname === 'Lexi Learner'}
-                    />
-                  )}
-
-                  {analysisResult?.layer3 && (
-                    <CommonMistakes mistakes={analysisResult.layer3} />
-                  )}
-
-                  {isLoading && (
-                    <div className="flex justify-center py-6">
-                      <LoadingSpinner
-                        text={
-                          analysisResult?.layer1
-                            ? 'Deepening the pattern, exploring more contexts...'
-                            : 'LexiLens is reading the sentence and summoning your coach...'
-                        }
-                      />
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </>
-        )}
+        {mainContent}
 
         <EnglishLevelDialog
           isOpen={isLevelDialogOpen}

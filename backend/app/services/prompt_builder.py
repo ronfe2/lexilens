@@ -108,6 +108,7 @@ class PromptBuilder:
         english_level: str | None = None,
         interests: Optional[List[InterestTopicPayload]] = None,
         blocked_titles: Optional[List[str]] = None,
+        favorite_words: Optional[List[str]] = None,
     ) -> tuple[str, str]:
         layer_cfg = PROMPT_CONFIG["layer4"]
         system_prompt = layer_cfg["system_prompt"]
@@ -120,6 +121,15 @@ class PromptBuilder:
             )
 
         level_note = PromptBuilder._build_level_note("layer4", english_level)
+
+        favorites_note = ""
+        if favorite_words:
+            favorites_preview = ", ".join(favorite_words[:10])
+            template = layer_cfg.get("favorites_note_template")
+            if template:
+                favorites_note = template.format(
+                    favorites_preview=favorites_preview
+                )
 
         interests_note = ""
         if interests:
@@ -156,6 +166,7 @@ class PromptBuilder:
             level_note=level_note,
             interests_note=interests_note,
             blocklist_note=blocklist_note,
+            favorites_note=favorites_note,
         )
 
         return system_prompt, user_prompt
@@ -168,6 +179,7 @@ class PromptBuilder:
         english_level: str | None = None,
         interests: Optional[List[InterestTopicPayload]] = None,
         blocked_titles: Optional[List[str]] = None,
+        favorite_words: Optional[List[str]] = None,
     ) -> dict:
         return {
             "layer1": PromptBuilder.build_layer1_prompt(word, context, english_level),
@@ -180,5 +192,6 @@ class PromptBuilder:
                 english_level,
                 interests,
                 blocked_titles,
+                favorite_words,
             ),
         }

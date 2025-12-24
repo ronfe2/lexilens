@@ -1,9 +1,19 @@
-import { useEffect, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Star, Trash2 } from 'lucide-react';
 import InterestCard from '../components/InterestCard';
 import { getLevelConfig, type UserProfile } from './hooks/useUserProfile';
 import type { UseInterestsResult } from './hooks/useInterests';
-import { useWordbook } from './hooks/useWordbook';
+import type { WordbookEntry } from '../shared/types';
+
+const PAGE_SIZE = 10;
+
+interface ProfileWordbookApi {
+  entries: WordbookEntry[];
+  loading: boolean;
+  updateStage: (id: string, stage: WordbookEntry['stage']) => void;
+  toggleFavoriteByWord: (word: string) => void;
+  deleteEntry: (id: string) => void;
+}
 
 interface ProfilePageProps {
   profile: UserProfile;
@@ -11,6 +21,9 @@ interface ProfilePageProps {
   onBack: () => void;
   onLevelClick: () => void;
   interests: UseInterestsResult;
+  wordbook: ProfileWordbookApi;
+  onOpenWordbookEntry: (id: string) => void;
+  activeEntryId?: string | null;
 }
 
 export default function ProfilePage({
@@ -19,12 +32,15 @@ export default function ProfilePage({
   onBack,
   onLevelClick,
   interests,
+   wordbook,
+   onOpenWordbookEntry,
+   activeEntryId,
 }: ProfilePageProps) {
   const [nicknameInput, setNicknameInput] = useState(profile.nickname);
   const [avatarInput, setAvatarInput] = useState(profile.avatarUrl ?? '');
+  const [page, setPage] = useState(0);
 
   const levelConfig = getLevelConfig(profile.englishLevel);
-  const wordbook = useWordbook();
 
   useEffect(() => {
     setNicknameInput(profile.nickname);
@@ -41,6 +57,46 @@ export default function ProfilePage({
     const trimmed = avatarInput.trim();
     onUpdateProfile({ avatarUrl: trimmed || undefined });
   };
+
+  // Keep pagination stable when the wordbook changes, but clamp the
+  // current page index so it never points past the end.
+  useEffect(() => {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(wordbook.entries.length / PAGE_SIZE),
+    );
+    setPage((prev) => {
+      if (!Number.isFinite(prev) || prev < 0) return 0;
+      return prev >= totalPages ? totalPages - 1 : prev;
+    });
+  }, [wordbook.entries.length]);
+
+  const sortedEntries = useMemo(() => {
+    if (!wordbook.entries.length) return [];
+
+    const getCreatedTime = (entry: WordbookEntry): number =>
+      entry.createdAt ?? entry.lastReviewedAt ?? 0;
+
+    return [...wordbook.entries].sort((a, b) => {
+      const favA = !!a.isFavorite;
+      const favB = !!b.isFavorite;
+      if (favA !== favB) return favA ? -1 : 1;
+
+      const aCreated = getCreatedTime(a);
+      const bCreated = getCreatedTime(b);
+      return bCreated - aCreated;
+    });
+  }, [wordbook.entries]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(sortedEntries.length / PAGE_SIZE),
+  );
+
+  const pageEntries = sortedEntries.slice(
+    page * PAGE_SIZE,
+    (page + 1) * PAGE_SIZE,
+  );
 
   return (
     <div className="h-full w-full px-6 pb-6 pt-2 flex flex-col">
@@ -193,35 +249,52 @@ export default function ProfilePage({
             </p>
           ) : (
             <div className="space-y-2">
-              {wordbook.entries.map((entry) => (
+              {pageEntries.map((entry) => {
+                const subtitle =
+                  entry.translation ??
+                  entry.latestSnapshot?.analysis?.layer1?.definition;
+                const contextSnippet =
+                  entry.example ?? entry.latestSnapshot?.request.context;
+                const isActive = activeEntryId === entry.id;
+
+                return (
                 <div
                   key={entry.id}
-                  className="glass glass-border rounded-xl px-3 py-2.5 flex items-center justify-between gap-3"
+                  onClick={() => onOpenWordbookEntry(entry.id)}
+                  className={`glass glass-border rounded-xl px-3 py-2.5 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                    isActive
+                      ? 'border-primary-400 bg-primary-50/70 dark:bg-primary-900/20 dark:border-primary-500'
+                      : 'hover:border-primary-300/90 dark:hover:border-primary-400/90'
+                  }`}
                 >
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                       {entry.word}
                     </p>
-                    {entry.translation && (
+                    {subtitle && (
                       <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                        {entry.translation}
+                        {subtitle}
                       </p>
                     )}
-                    {entry.example && (
+                    {contextSnippet && contextSnippet !== subtitle && (
                       <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">
-                        {entry.example}
+                        {contextSnippet}
                       </p>
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <div className="flex items-center gap-0.5">
+                    <div className="flex items-center gap-1">
                       {[1, 2, 3, 4, 5].map((stage) => (
                         <button
                           key={stage}
                           type="button"
-                          onClick={() =>
-                            wordbook.updateStage(entry.id, stage as 1 | 2 | 3 | 4 | 5)
-                          }
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            wordbook.updateStage(
+                              entry.id,
+                              stage as WordbookEntry['stage'],
+                            );
+                          }}
                           className={`h-2 w-4 rounded-full transition-colors ${
                             stage <= entry.stage
                               ? 'bg-primary-500'
@@ -231,12 +304,78 @@ export default function ProfilePage({
                         />
                       ))}
                     </div>
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                      当前阶段：{entry.stage} / 5
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                        当前阶段：{entry.stage} / 5
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          wordbook.toggleFavoriteByWord(entry.word);
+                        }}
+                        className="inline-flex items-center justify-center h-6 w-6 rounded-full hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
+                        aria-label={
+                          entry.isFavorite ? '移除精选单词' : '标记为精选单词'
+                        }
+                      >
+                        <Star
+                          className={`h-3.5 w-3.5 ${
+                            entry.isFavorite
+                              ? 'text-yellow-500'
+                              : 'text-gray-300 dark:text-gray-600'
+                          }`}
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          const confirmed = window.confirm(
+                            '确定删除这个单词条目吗？此操作不可撤销。',
+                          );
+                          if (!confirmed) return;
+                          wordbook.deleteEntry(entry.id);
+                        }}
+                        className="inline-flex items-center justify-center h-6 w-6 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20"
+                        aria-label="删除这个单词条目"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              ))}
+              );})}
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPage((prev) => (prev > 0 ? prev - 1 : prev))
+                    }
+                    disabled={page === 0}
+                    className="px-2 py-1 text-[11px] rounded-full border border-gray-200 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                  >
+                    上一页
+                  </button>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                    第 {page + 1} / {totalPages} 页
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPage((prev) =>
+                        prev < totalPages - 1 ? prev + 1 : prev,
+                      )
+                    }
+                    disabled={page >= totalPages - 1}
+                    className="px-2 py-1 text-[11px] rounded-full border border-gray-200 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                  >
+                    下一页
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>

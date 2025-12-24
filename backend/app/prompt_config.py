@@ -226,6 +226,8 @@ Adjust the difficulty so it feels encouraging and not overwhelming for this lear
     #   - {joined}: 已格式化好的兴趣主题列表字符串
     # - {blocklist_note}: 根据 blocked_titles 生成的屏蔽说明（可能为空字符串）
     #   - {blocked_preview}: 取前 5 个屏蔽标题、逗号分隔后的字符串
+    # - {favorites_note}: 根据 favorite_words 生成的重点单词说明（可能为空字符串）
+    #   - {favorites_preview}: 学习者标记为“精选”的部分单词，逗号分隔后的字符串
     "layer4": {
         "system_prompt": "You are a vocabulary coach building connections.",
         "user_prompt_template": """Task: Recommend 2 related words/phrases that help learners understand "{word}" better.
@@ -247,7 +249,7 @@ Personalized coaching (Chinese):
 - It should be 1–3 short sentences that speak directly to the learner.
 - Use concrete scenes from everyday life to help them feel the word.
 - When learning history is available, briefly connect this word to some of their previously studied words.
-{interests_note}{blocklist_note}
+{interests_note}{blocklist_note}{favorites_note}
 
 Word: {word}
 Context: {context}
@@ -287,6 +289,10 @@ When writing the "personalized" field, imagine warm, everyday scenes from study,
         "blocklist_note_template": """
 Important constraint:
 - Never mention these blocked topics or phrases in your answer, even inside the "personalized" field: {blocked_preview}
+""",
+        "favorites_note_template": """
+The learner has marked these words as especially important: {favorites_preview}.
+When it helps, gently connect the current word to 1–2 of these favorites in the related words and personalized coaching.
 """,
         "level_notes": {
             "beginner": """
@@ -387,4 +393,3 @@ Return ONLY a JSON array of topic objects, without any surrounding explanation."
         ),
     },
 }
-

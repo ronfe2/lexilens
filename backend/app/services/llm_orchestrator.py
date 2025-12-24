@@ -114,6 +114,7 @@ class LLMOrchestrator:
         english_level: str | None = None,
         interests: Optional[List[InterestTopicPayload]] = None,
         blocked_titles: Optional[List[str]] = None,
+        favorite_words: Optional[List[str]] = None,
     ) -> Layer4Response:
         system_prompt, user_prompt = self.prompt_builder.build_layer4_prompt(
             word,
@@ -122,6 +123,7 @@ class LLMOrchestrator:
             english_level,
             interests,
             blocked_titles,
+            favorite_words,
         )
 
         response = await self.client.complete_json(
@@ -244,6 +246,7 @@ class LLMOrchestrator:
         english_level = request.english_level
         interests = request.interests or []
         blocked_titles = request.blocked_titles or []
+        favorite_words = request.favorite_words or []
 
         try:
             full_layer1_content = ""
@@ -277,6 +280,7 @@ class LLMOrchestrator:
                     english_level,
                     interests,
                     blocked_titles,
+                    favorite_words,
                 )
             )
 

@@ -27,6 +27,10 @@ class AnalyzeRequest(BaseModel):
         default_factory=list,
         description="List of previously looked-up words for personalization"
     )
+    favorite_words: Optional[List[str]] = Field(
+        default_factory=list,
+        description="Subset of learning words explicitly marked as favorites.",
+    )
     interests: Optional[list[InterestTopicPayload]] = Field(
         default_factory=list,
         description="Current interest topics used to personalize explanations",
@@ -45,6 +49,7 @@ class AnalyzeRequest(BaseModel):
                 "url": "https://example.com/article",
                 "english_level": "B1",
                 "learning_history": ["strategy", "implement"],
+                "favorite_words": ["strategy"],
                 "interests": [],
                 "blocked_titles": [],
             }

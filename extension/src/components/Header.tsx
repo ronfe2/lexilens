@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { BookmarkPlus, Volume2, X } from 'lucide-react';
+import { Bookmark, BookmarkPlus, Volume2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { truncateText } from '../shared/utils';
 
@@ -12,6 +12,7 @@ interface HeaderProps {
   // Short Cobuild-style English explanation under the headword
   definition?: string;
   onAddToWordlistClick?: () => void;
+  isFavorite?: boolean;
   onClose?: () => void;
 }
 
@@ -22,10 +23,15 @@ export default function Header({
   pronunciation,
   definition,
   onAddToWordlistClick,
+  isFavorite,
   onClose,
 }: HeaderProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isDefinitionExpanded, setIsDefinitionExpanded] = useState(true);
+
+  const favoriteLabel = isFavorite
+    ? '移除精选'
+    : '加入生词表（标为精选）';
 
   const playPronunciation = async () => {
     if (!pronunciation?.audioUrl) return;
@@ -84,11 +90,16 @@ export default function Header({
           <button
             type="button"
             onClick={onAddToWordlistClick}
+            aria-pressed={isFavorite ?? false}
             className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            aria-label="加入生词表"
-            title="加入生词表（即将上线）"
+            aria-label={favoriteLabel}
+            title={favoriteLabel}
           >
-            <BookmarkPlus className="h-4 w-4 text-primary-500" />
+            {isFavorite ? (
+              <Bookmark className="h-4 w-4 text-primary-500 fill-primary-500" />
+            ) : (
+              <BookmarkPlus className="h-4 w-4 text-primary-500" />
+            )}
           </button>
           {onClose && (
             <button

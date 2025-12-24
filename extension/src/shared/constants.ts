@@ -11,6 +11,9 @@ export const STORAGE_KEYS = {
   WORDBOOK: 'lexilens_wordbook',
 } as const;
 
+export const MAX_WORDBOOK_ENTRIES = 500;
+export const MAX_SNAPSHOTS_PER_WORD = 5;
+
 export const DEMO_LEARNING_HISTORY = [
   'strategy',
   'implement',
@@ -85,6 +88,9 @@ export const DEMO_WORDBOOK: WordbookEntry[] = [
     example: 'We can leverage AI tools to improve productivity.',
     stage: 3,
     lastReviewedAt: Date.now() - 1000 * 60 * 60 * 24,
+    isFavorite: true,
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 7,
+    updatedAt: Date.now() - 1000 * 60 * 60 * 24,
   },
   {
     id: 'mortgage',
@@ -93,6 +99,8 @@ export const DEMO_WORDBOOK: WordbookEntry[] = [
     example: 'They are discussing mortgage options for a new apartment in Beijing.',
     stage: 2,
     lastReviewedAt: Date.now() - 1000 * 60 * 60 * 48,
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 5,
+    updatedAt: Date.now() - 1000 * 60 * 60 * 48,
   },
   {
     id: 'fixture',
@@ -101,6 +109,8 @@ export const DEMO_WORDBOOK: WordbookEntry[] = [
     example: 'The Premier League fixture list was released yesterday.',
     stage: 4,
     lastReviewedAt: Date.now() - 1000 * 60 * 60 * 72,
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
+    updatedAt: Date.now() - 1000 * 60 * 60 * 72,
   },
   {
     id: 'corpus',
@@ -108,5 +118,7 @@ export const DEMO_WORDBOOK: WordbookEntry[] = [
     translation: '语料库',
     example: 'The model is trained on a large text corpus.',
     stage: 1,
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
+    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
   },
 ];

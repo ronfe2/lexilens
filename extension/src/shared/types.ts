@@ -10,6 +10,8 @@ export interface AnalysisRequest {
   interests?: InterestTopic[];
   // Titles of interests the user has explicitly removed; used as a blocklist
   blockedTitles?: string[];
+  // Words explicitly marked as favorites in the learner's wordbook
+  favoriteWords?: string[];
 }
 
 export interface BehaviorPattern {
@@ -74,6 +76,24 @@ export interface InterestTopic {
   updatedAt: number;
 }
 
+export interface WordbookSnapshot {
+  id: string; // unique per snapshot (e.g. timestamp-based)
+  createdAt: number;
+  request: {
+    context: string;
+    pageType?: AnalysisRequest['pageType'];
+    url?: string;
+  };
+  analysis: AnalysisResult;
+  lexicalImages?: {
+    baseWord: string;
+    relatedWord: string;
+    imageUrl: string;
+    prompt?: string;
+    createdAt: number;
+  }[];
+}
+
 export interface WordbookEntry {
   id: string;
   word: string;
@@ -81,6 +101,11 @@ export interface WordbookEntry {
   example?: string;
   stage: 1 | 2 | 3 | 4 | 5;
   lastReviewedAt?: number;
+  isFavorite?: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+  latestSnapshot?: WordbookSnapshot;
+  snapshots?: WordbookSnapshot[];
 }
 
 export type MessageType =
