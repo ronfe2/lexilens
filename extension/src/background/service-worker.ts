@@ -310,9 +310,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'LEXILENS_SHOW_LEXICAL_IMAGE') {
-    try {
-      chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
-        const activeTab = tabs[0];
+    // Forward the image overlay request to the active tab's content script and
+    // always respond to the side panel, even if the content script doesn't send
+    // an explicit reply. This avoids falling back to the side panel modal when
+    // the full-page overlay was successfully shown.
+    (async () => {
+      try {
+        const [activeTab] = await (chrome.tabs as any).query({
+          active: true,
+          lastFocusedWindow: true,
+        });
+
         const targetTabId = activeTab?.id ?? null;
 
         if (targetTabId == null) {
@@ -321,37 +329,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         try {
-          chrome.tabs.sendMessage(
-            targetTabId,
-            {
-              type: 'LEXILENS_SHOW_LEXICAL_IMAGE',
-              imageUrl: message.imageUrl,
-            },
-            () => {
-              const lastError = chrome.runtime.lastError;
-              if (lastError) {
-                console.warn(
-                  'Failed to forward lexical image overlay message to content script',
-                  lastError,
-                );
-                sendResponse({ success: false });
-                return;
-              }
+          await (chrome.tabs as any).sendMessage(targetTabId, {
+            type: 'LEXILENS_SHOW_LEXICAL_IMAGE',
+            imageUrl: message.imageUrl,
+          });
 
-              sendResponse({ success: true });
-            },
-          );
+          sendResponse({ success: true });
         } catch (err) {
-          console.warn('Error sending lexical image overlay message to content script', err);
+          console.warn(
+            'Failed to forward lexical image overlay message to content script',
+            err,
+          );
           sendResponse({ success: false });
         }
-      });
-    } catch (err) {
-      console.warn('Error querying active tab for lexical image overlay', err);
-      sendResponse({ success: false });
-    }
+      } catch (err) {
+        console.warn('Error querying active tab for lexical image overlay', err);
+        sendResponse({ success: false });
+      }
+    })();
 
-    // Indicate that we'll respond asynchronously from inside tabs.query / tabs.sendMessage.
+    // Indicate that we'll respond asynchronously from the async IIFE above.
     return true;
   }
 
