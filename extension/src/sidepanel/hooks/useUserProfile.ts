@@ -3,7 +3,6 @@ import { STORAGE_KEYS } from '../../shared/constants';
 
 export type EnglishLevel =
   | 'Starter'
-  | 'KET'
   | 'A1'
   | 'A2'
   | 'B1'
@@ -18,11 +17,15 @@ export interface EnglishLevelConfig {
   ability: string;
   recommendation: string;
   cefrHint: string;
+  /**
+   * Tailwind utility classes used to render a colored badge for this level.
+   * This keeps level colours consistent wherever they are shown.
+   */
+  badgeClassName: string;
 }
 
 const ALL_LEVELS: EnglishLevel[] = [
   'Starter',
-  'KET',
   'A1',
   'A2',
   'B1',
@@ -39,13 +42,8 @@ export const ENGLISH_LEVELS: Record<EnglishLevel, EnglishLevelConfig> = {
     ability: 'Can understand a few basic everyday words with help.',
     recommendation: '适合刚开始学英语、重新起步的阶段。',
     cefrHint: 'below A1 (Starter)',
-  },
-  KET: {
-    id: 'KET',
-    label: 'KET',
-    ability: 'Can understand simple phrases and short everyday sentences.',
-    recommendation: '适合日常生活、生存英语，接近 A2 / KET 水平。',
-    cefrHint: 'A2 (KET)',
+    badgeClassName:
+      'bg-primary-50 text-primary-700 dark:bg-primary-900/40 dark:text-primary-200',
   },
   A1: {
     id: 'A1',
@@ -53,6 +51,8 @@ export const ENGLISH_LEVELS: Record<EnglishLevel, EnglishLevelConfig> = {
     ability: 'Can understand very basic phrases about familiar topics.',
     recommendation: '适合入门阶段，简单自我介绍和日常问候。',
     cefrHint: 'A1',
+    badgeClassName:
+      'bg-primary-100 text-primary-700 dark:bg-primary-900/50 dark:text-primary-200',
   },
   A2: {
     id: 'A2',
@@ -60,6 +60,8 @@ export const ENGLISH_LEVELS: Record<EnglishLevel, EnglishLevelConfig> = {
     ability: 'Can understand sentences about common everyday topics.',
     recommendation: '适合旅游、简单工作沟通和常见邮件。',
     cefrHint: 'A2',
+    badgeClassName:
+      'bg-primary-200 text-primary-800 dark:bg-primary-900/60 dark:text-primary-100',
   },
   B1: {
     id: 'B1',
@@ -67,6 +69,8 @@ export const ENGLISH_LEVELS: Record<EnglishLevel, EnglishLevelConfig> = {
     ability: 'Can handle most situations while travelling and basic work talk.',
     recommendation: '适合大学英语四级、常见工作场景。',
     cefrHint: 'B1',
+    badgeClassName:
+      'bg-primary-300 text-primary-900 dark:bg-primary-900/70 dark:text-primary-100',
   },
   B2: {
     id: 'B2',
@@ -74,6 +78,8 @@ export const ENGLISH_LEVELS: Record<EnglishLevel, EnglishLevelConfig> = {
     ability: 'Can discuss complex topics and read longer texts with some support.',
     recommendation: '适合大学英语六级、IELTS 6–6.5、日常专业阅读。',
     cefrHint: 'B2',
+    badgeClassName:
+      'bg-primary-400 text-white dark:bg-primary-700 dark:text-primary-50',
   },
   C1: {
     id: 'C1',
@@ -81,6 +87,8 @@ export const ENGLISH_LEVELS: Record<EnglishLevel, EnglishLevelConfig> = {
     ability: 'Can use English flexibly for work and academic study.',
     recommendation: '适合高级职场沟通、演讲、IELTS 7+。',
     cefrHint: 'C1',
+    badgeClassName:
+      'bg-primary-500 text-white dark:bg-primary-800 dark:text-primary-50',
   },
   C2: {
     id: 'C2',
@@ -88,6 +96,8 @@ export const ENGLISH_LEVELS: Record<EnglishLevel, EnglishLevelConfig> = {
     ability: 'Can understand almost everything and express ideas precisely.',
     recommendation: '接近母语水平，适合高阶学术和专业写作。',
     cefrHint: 'C2',
+    badgeClassName:
+      'bg-primary-600 text-white dark:bg-primary-900 dark:text-primary-50',
   },
   Academic: {
     id: 'Academic',
@@ -95,6 +105,8 @@ export const ENGLISH_LEVELS: Record<EnglishLevel, EnglishLevelConfig> = {
     ability: 'Comfortable reading and writing academic papers and reports.',
     recommendation: '适合研究生、科研论文和学术写作场景。',
     cefrHint: 'C1–C2 Academic',
+    badgeClassName:
+      'bg-primary-700 text-white dark:bg-primary-900 dark:text-primary-50',
   },
 };
 

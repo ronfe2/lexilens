@@ -174,12 +174,16 @@ export default function ProfilePage({
               <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
                 英语等级
               </p>
-              <p className="mt-0.5 text-xs text-gray-800 dark:text-gray-100">
-                {levelConfig.label}{' '}
-                <span className="text-gray-500 dark:text-gray-400">
-                  · {levelConfig.ability}
+              <div className="mt-0.5 flex items-center gap-2">
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${levelConfig.badgeClassName}`}
+                >
+                  {levelConfig.label}
                 </span>
-              </p>
+                <span className="text-xs text-gray-600 dark:text-gray-300">
+                  {levelConfig.ability}
+                </span>
+              </div>
               <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
                 推荐：{levelConfig.recommendation}
               </p>

@@ -18,7 +18,6 @@ export default function EnglishLevelDialog({
 
   const levelsInOrder: EnglishLevel[] = [
     'Starter',
-    'KET',
     'A1',
     'A2',
     'B1',
@@ -72,7 +71,9 @@ export default function EnglishLevelDialog({
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/40 px-2 py-0.5 text-[11px] font-semibold text-primary-700 dark:text-primary-200">
+                    <span
+                      className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${config.badgeClassName}`}
+                    >
                       {config.label}
                     </span>
                     <span className="text-xs font-medium text-gray-800 dark:text-gray-100">

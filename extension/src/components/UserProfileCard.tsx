@@ -55,10 +55,12 @@ export default function UserProfileCard({
           <button
             type="button"
             onClick={onLevelClick}
-            className="mt-1 inline-flex items-center gap-1 rounded-full bg-indigo-50 dark:bg-indigo-900/40 px-2 py-0.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 transition-colors"
+            className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/60 dark:bg-gray-800/60 px-2 py-0.5 hover:bg-white dark:hover:bg-gray-800 transition-colors"
             aria-label="调整英语等级"
           >
-            <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-200">
+            <span
+              className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${levelConfig.badgeClassName}`}
+            >
               {levelConfig.label}
             </span>
             <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[9rem]">

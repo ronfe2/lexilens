@@ -20,7 +20,7 @@ export default function CoachSummary({
   }
 
   const levelConfig = getLevelConfig(profile.englishLevel);
-  const levelDisplay = `${levelConfig.label} · ${levelConfig.ability}`;
+  const levelDisplay = levelConfig.label;
 
   const targetLabel = isLongEntry(word) ? '这句话' : word;
 
@@ -41,7 +41,9 @@ export default function CoachSummary({
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             以你目前的{' '}
-            <span className="font-semibold text-gray-800 dark:text-gray-100">
+            <span
+              className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${levelConfig.badgeClassName}`}
+            >
               {levelDisplay}
             </span>{' '}
             水平，下面会结合你日常会遇到的场景和内容偏好，来解读{' '}

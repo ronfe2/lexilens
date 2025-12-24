@@ -200,7 +200,7 @@ function App() {
         context: normalizedContext,
         pageType: data.pageType,
         learningHistory: learningWords,
-        // Map UI level (e.g. "Starter", "KET") to a CEFR-style hint for the backend prompt.
+        // Map UI level (e.g. "Starter", "A2") to a CEFR-style hint for the backend prompt.
         englishLevel: getCefrForPrompt(profile.englishLevel),
         url: data.url,
         interests: topics,
@@ -557,6 +557,41 @@ function App() {
           onSelect={(level) => {
             updateProfile({ englishLevel: level });
             setIsLevelDialogOpen(false);
+            const cefrLevel = getCefrForPrompt(level);
+
+            // If there is already an explanation for a word when the user
+            // adjusts their level, immediately refresh that explanation
+            // using the new level setting.
+            if (
+              view === 'saved-entry' &&
+              activeSnapshot &&
+              savedWord &&
+              activeSnapshot.request.context
+            ) {
+              const request: AnalysisRequest = {
+                word: savedWord.trim(),
+                context: activeSnapshot.request.context,
+                pageType: activeSnapshot.request.pageType,
+                learningHistory: learningWords,
+                englishLevel: cefrLevel,
+                url: activeSnapshot.request.url,
+                interests: topics,
+                blockedTitles,
+                favoriteWords,
+              };
+
+              lastSelectionRef.current = request;
+              void startAnalysis(request);
+            } else if (hasAnalysis && lastSelectionRef.current) {
+              const previous = lastSelectionRef.current;
+              const request: AnalysisRequest = {
+                ...previous,
+                englishLevel: cefrLevel,
+              };
+
+              lastSelectionRef.current = request;
+              void startAnalysis(request);
+            }
           }}
           onClose={() => setIsLevelDialogOpen(false)}
         />
