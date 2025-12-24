@@ -14,6 +14,11 @@ let selectedText = '';
 let selectedContext = '';
 let imageOverlayElement: HTMLDivElement | null = null;
 let selectionButton: HTMLButtonElement | null = null;
+// Track whether the side panel is currently open. We prefer to rely on
+// the background's broadcast state for robustness and only fall back to
+// a direct query when we have no local knowledge yet.
+let isSidepanelOpenKnown = false;
+let isSidepanelOpen = false;
 
 function showImageOverlay(imageUrl: string) {
   if (!imageUrl) return;
@@ -154,9 +159,24 @@ function showSelectionButtonForCurrentSelection() {
   const range = selection.getRangeAt(0);
 
   // Only show the floating button when the side panel is open so the
-  // user has an obvious place for the explanation to appear. We query
-  // the background script, but fall back to showing the button if the
-  // message channel is unavailable so the UX does not silently break.
+  // user has an obvious place for the explanation to appear.
+
+  // Fast path: if we already know the side panel state from a prior
+  // broadcast or query, use that immediately without hitting the
+  // background again on every selection.
+  if (isSidepanelOpenKnown) {
+    if (!isSidepanelOpen) {
+      removeSelectionButton();
+      return;
+    }
+
+    createOrUpdateSelectionButton(range, text);
+    return;
+  }
+
+  // Slow path: we don't know the side panel state yet, ask the
+  // background. The result is cached in the local flags above so
+  // subsequent selections do not need to round-trip.
   try {
     chrome.runtime.sendMessage(
       { type: 'LEXILENS_IS_SIDEPANEL_OPEN' },
@@ -169,13 +189,21 @@ function showSelectionButtonForCurrentSelection() {
             return;
           }
 
-          // If we cannot reliably query the side panel state, still
-          // show the button so selection → explanation remains usable.
-          createOrUpdateSelectionButton(range, text);
+          // If we cannot reliably query the side panel state, default
+          // to hiding the button so it never appears while the side
+          // panel is closed or its state is unknown.
+          isSidepanelOpenKnown = false;
+          isSidepanelOpen = false;
+          removeSelectionButton();
           return;
         }
 
-        if (!response || response.isOpen !== true) {
+        // Treat the result as authoritative until we hear otherwise
+        // from a later broadcast.
+        isSidepanelOpenKnown = true;
+        isSidepanelOpen = response?.isOpen === true;
+
+        if (!isSidepanelOpen) {
           removeSelectionButton();
           return;
         }
@@ -189,9 +217,11 @@ function showSelectionButtonForCurrentSelection() {
       return;
     }
 
-    // If messaging fails for any other reason, fall back to showing
-    // the button so the feature still works in degraded mode.
-    createOrUpdateSelectionButton(range, text);
+    // If messaging fails for any other reason, default to hiding the
+    // button so we do not show it when the side panel might be closed.
+    isSidepanelOpenKnown = false;
+    isSidepanelOpen = false;
+    removeSelectionButton();
   }
 }
 
@@ -284,6 +314,19 @@ document.addEventListener(
   true,
 );
 chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
+  if (message?.type === 'LEXILENS_SIDEPANEL_STATE') {
+    if (typeof message.open === 'boolean') {
+      isSidepanelOpenKnown = true;
+      isSidepanelOpen = message.open;
+
+      // If the side panel was just closed, ensure any floating button
+      // is removed so it does not linger while the helper UI is hidden.
+      if (!isSidepanelOpen) {
+        removeSelectionButton();
+      }
+    }
+  }
+
   // Allow the background script (e.g. from a context menu click) to ask the
   // content script to send the current selection through the normal pipeline.
   if (message?.type === 'LEXILENS_CONTEXT_MENU') {
