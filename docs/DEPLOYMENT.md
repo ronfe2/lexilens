@@ -74,9 +74,12 @@
 - `WAITLIST_WEBHOOK_URL` —— 可选；如设置，候补名单 API 会向该 URL 发送
   `{ email, source, ts }` 的 JSON 请求；
 - `JUDGE_ACCESS_CODE` —— 访问评委下载面板所需的密钥；
-- `FORMAL_PACKAGE_URL` —— 正式版 Chrome 扩展 **CRX 文件** 的公网下载地址，
-  建议使用 `scripts/package-formal-crx.sh` 生成的
-  `artifacts/formal/lexilens-formal.crx` 并上传到对象存储或文件分享服务；
+- `FORMAL_PACKAGE_URL` —— 正式版 Chrome 扩展 **dist 压缩包（ZIP）** 的公网下载地址。
+  建议使用 `scripts/package-formal-zip.sh` 生成的
+  `artifacts/formal/lexilens-formal-dist.zip` 并上传到对象存储或文件分享服务；
+  如需实验 CRX 安装，可额外运行 `scripts/package-formal-crx.sh` 生成 CRX，
+  但部分 Chrome 版本会因安全策略出现 `CRX_REQUIRED_PROOF_MISSING` 报错，
+  因此不建议作为评委评审的主安装路径；
 - `NEXT_PUBLIC_BACKEND_API_URL` —— 可选；指向部署好的后端，将来用于在落地页上做交互 Demo。
 
 ### 2.2 部署到 Vercel
@@ -129,9 +132,9 @@ Render 会使用 `next.config.mjs` 中配置的 standalone 输出模式来运行
 
 ---
 
-## 3. 将正式版扩展连接到云端后端并打包 CRX
+## 3. 将正式版扩展连接到云端后端并打包 dist ZIP
 
-在构建正式版（production）扩展并生成评委可下载的 CRX 时：
+在构建正式版（production）扩展并生成评委可下载的 dist ZIP 包时：
 
 1. 在 `extension/` 目录下准备 `.env.formal`，内容类似：
 
@@ -141,19 +144,21 @@ Render 会使用 `next.config.mjs` 中配置的 standalone 输出模式来运行
    VITE_ENV=production
    ```
 
-2. 构建并打包正式版扩展为 CRX：
+2. 构建并打包正式版扩展为 ZIP（包含 `dist/` 目录）：
 
    ```bash
    # 在仓库根目录
-   bash scripts/package-formal-crx.sh
+   bash scripts/package-formal-zip.sh
    ```
 
    运行成功后会在
-   `artifacts/formal/lexilens-formal.crx` 生成正式版 CRX 文件（以及对应的
-   `lexilens-formal.pem` 私钥，用于保持扩展 ID 稳定，不需要对外分发）。
+   `artifacts/formal/lexilens-formal-dist.zip` 生成正式版 dist 压缩包。
 
-3. 将生成的 `lexilens-formal.crx` 上传到对象存储 / 文件分享服务，并把公网 URL
-   填入落地页部署环境的 `FORMAL_PACKAGE_URL`。
+3. 将生成的 `lexilens-formal-dist.zip` 上传到对象存储 / 文件分享服务，并把公网 URL
+   填入落地页部署环境的 `FORMAL_PACKAGE_URL`。评委在 `/judge` 入口下载 ZIP 后：
+   - 本地解压得到 `dist/` 目录；
+   - 在 Chrome 打开 `chrome://extensions`，开启「开发者模式」；
+   - 点击「加载已解压的扩展程序」，选择解压后的 `dist/` 目录完成安装。
 
 4. 如需在本地调试扩展源码，也可以按 `docs/README.formal.md` 中的说明，
    手动执行 `pnpm build:formal`，然后从 `dist/` 目录以「加载已解压的扩展程序」

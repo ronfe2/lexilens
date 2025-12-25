@@ -73,11 +73,11 @@
 - `Formal package download panel` —— 评委专用下载面板  
   - 位置：访问口令验证通过后显示的 `ll-judge-panel` 区域；  
   - 素材：输入正确口令后出现的评委专用区域截图，需包含：
-    - 正式版 Chrome 扩展 CRX 下载链接（由 `FORMAL_PACKAGE_URL` 提供）；  
+    - 正式版 Chrome 扩展 dist 压缩包（ZIP）下载链接（由 `FORMAL_PACKAGE_URL` 提供）；  
     - 简要的安装步骤文字说明。
 
 - `Configuration note` —— 配置提示（纯文字）  
-  - 无需图片；只需在部署前确认 `FORMAL_PACKAGE_URL` 已配置为最终 CRX 下载地址。
+  - 无需图片；只需在部署前确认 `FORMAL_PACKAGE_URL` 已配置为最终 dist ZIP 下载地址。
 
 ---
 

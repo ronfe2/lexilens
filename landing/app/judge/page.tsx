@@ -68,7 +68,7 @@ export default function JudgePage() {
           <h1 className="ll-section-title">好未来 Hackathon 评委入口</h1>
           <p className="ll-section-intro">
             这里提供 LexiLens 正式版评审包的下载与安装说明。请使用主办方提供的访问口令进入，
-            验证通过后可直接下载 Chrome 扩展 CRX 安装包。
+            验证通过后可直接下载 Chrome 扩展 dist 压缩包（ZIP）及相关使用说明。
           </p>
 
           <form className="ll-form ll-form-judge" onSubmit={handleSubmit}>
@@ -107,7 +107,7 @@ export default function JudgePage() {
 
               {downloadUrl ? (
                 <p className="ll-judge-download">
-                  正式版 Chrome 扩展（CRX）下载链接：
+                  正式版 Chrome 扩展 dist 压缩包（ZIP）下载链接：
                   <a href={downloadUrl} target="_blank" rel="noreferrer">
                     点击下载
                   </a>
@@ -121,10 +121,13 @@ export default function JudgePage() {
               )}
 
               <ol className="ll-steps">
-                <li>下载正式版 Chrome 扩展 CRX 文件（例如：lexilens-formal.crx）。</li>
                 <li>
-                  在 Chrome 打开 <code>chrome://extensions</code>，开启「开发者模式」，将 CRX
-                  文件拖拽到页面完成安装。
+                  下载正式版 Chrome 扩展 dist 压缩包（例如：lexilens-formal-dist.zip）。
+                </li>
+                <li>
+                  在本地解压 ZIP，确认其中包含带有 <code>manifest.json</code> 的{' '}
+                  <code>dist/</code> 目录；在 Chrome 打开 <code>chrome://extensions</code>，
+                  开启「开发者模式」，点击「加载已解压的扩展程序」，并选择该目录完成安装。
                 </li>
                 <li>按照 README / docs/DEPLOYMENT.md 中的步骤部署后端（Render 或本地）。</li>
                 <li>在 Chrome 中打开任意英文页面，确认扩展已连接云端服务并可以正常查词。</li>

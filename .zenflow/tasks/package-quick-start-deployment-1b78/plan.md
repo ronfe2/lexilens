@@ -232,3 +232,14 @@ TAL AI HACKATHON 参赛作品
    - 验证口令后展示「正式版 Chrome 扩展（CRX）下载链接」；
    - 提示在 `chrome://extensions` 开启开发者模式后拖拽 CRX 安装扩展；
    - 引导评委按照 README / `docs/DEPLOYMENT.md` 部署后端并完成体验脚本。
+
+### [x] Step: Switch Formal Package to dist ZIP
+
+1. 新增正式版扩展打包脚本 `scripts/package-formal-zip.sh`，在构建 `pnpm build:formal` 后，将根目录 `dist/` 打成 `artifacts/formal/lexilens-formal-dist.zip`，用于评委下载并以「加载已解压的扩展程序」方式安装。
+2. 更新部署与安装文档：
+   - 调整 `docs/DEPLOYMENT.md`，将 `FORMAL_PACKAGE_URL` 的含义改为 dist ZIP 下载地址，并以 ZIP + Load unpacked 作为主安装路径，仅在备注中保留 CRX 方案及其可能出现的 `CRX_REQUIRED_PROOF_MISSING` 限制；
+   - 调整 `docs/README.formal.md`，将评委推荐路径改为通过 `/judge` 下载 dist ZIP，解压后在 `chrome://extensions` 中加载已解压扩展，并在 Judge Quickstart 中同步更新步骤；
+   - 调整 `docs/MATERIALS.md`，将评委入口相关的截图与配置说明从 CRX 下载改为 dist ZIP 下载。
+3. 更新落地页：
+   - 在 `landing/app/page.tsx` 中，将「如何使用 LexiLens」部分的安装说明改为通过「加载已解压的扩展程序」加载解压后的安装目录；
+   - 在 `landing/app/judge/page.tsx` 中，将评委入口的文案和步骤改为下载 dist ZIP、解压得到 `dist/` 目录并使用「加载已解压的扩展程序」完成安装，同时保留后端部署与体验脚本指引不变。

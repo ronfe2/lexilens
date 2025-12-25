@@ -124,7 +124,8 @@ export default function LandingPage() {
               在 Chrome 地址栏输入 <code>chrome://extensions</code>，打开扩展管理页面并开启右上角「开发者模式」。
             </li>
             <li>
-              将我们提供的 LexiLens 安装包（CRX 文件）拖拽到该页面，按浏览器提示完成安装。
+              点击「加载已解压的扩展程序」，选择我们提供的 LexiLens 安装包解压后的目录
+              （通常为包含 <code>manifest.json</code> 的 <code>dist/</code> 目录），按浏览器提示完成安装。
             </li>
             <li>安装完成后，在任意英文网页中选中一个词或短语。</li>
             <li>点击浮动按钮或浏览器入口打开 LexiLens 侧边栏。</li>

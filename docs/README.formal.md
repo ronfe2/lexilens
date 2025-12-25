@@ -15,7 +15,8 @@ TAL AI HACKATHON 参赛作品
 如果你是评委，推荐从落地页 `/judge` 入口：
 
 - 输入主办方提供的访问口令；
-- 直接下载 **Chrome 扩展 CRX 安装包**，并在 `chrome://extensions` 中完成安装；
+- 直接下载 **Chrome 扩展 dist 压缩包（ZIP）**，解压后在 `chrome://extensions` 中通过
+  「加载已解压的扩展程序」完成安装；
 - 按照本说明文档和落地页上的指引，连接到云端后端并完成一次完整体验。
 
 ---
@@ -24,7 +25,7 @@ TAL AI HACKATHON 参赛作品
 
 在 Hackathon 提交材料中，我们会同时提供：
 
-- **在线评审入口**：落地页 `/judge`，用于下载正式版扩展的 CRX 安装包；
+- **在线评审入口**：落地页 `/judge`，用于下载正式版扩展的 dist 压缩包（ZIP）；
 - **源码压缩包（可选）**：包含 `backend/`、`extension/`、`docs/` 等目录，方便评委或技术同学本地查看与运行。
 
 如果你拿到的是源码 ZIP 包，解压后会看到：
@@ -100,16 +101,19 @@ VITE_ENV=production
 
 随后你可以按两种方式获取正式版扩展：
 
-- **方式 A（推荐给评委）：直接使用 CRX 安装包**
-  - 在仓库根目录运行：
+- **方式 A（推荐给评委）：使用 dist 压缩包（ZIP）**
+  - 如果你是评委，通常会从落地页 `/judge` 下载一个诸如
+    `lexilens-formal-dist.zip` 的压缩包（由团队预先打包并托管）；
+  - 将 ZIP 解压后，会得到一个包含 `manifest.json` 的 `dist/` 目录，
+    后续可以直接在 Chrome 中通过「加载已解压的扩展程序」安装；
+  - 如果你负责打包评审版本，可以在仓库根目录运行：
 
     ```bash
-    bash scripts/package-formal-crx.sh
+    bash scripts/package-formal-zip.sh
     ```
 
-  - 在 `artifacts/formal/lexilens-formal.crx` 得到正式版 CRX 文件；
-  - 将该文件上传到对象存储或文件分享服务，并将其公网地址配置为
-    落地页的 `FORMAL_PACKAGE_URL`，供评委从 `/judge` 页面直接下载。
+    生成 `artifacts/formal/lexilens-formal-dist.zip`，并将其上传到对象存储 /
+    文件分享服务，再把公网地址配置为落地页的 `FORMAL_PACKAGE_URL`。
 
 - **方式 B：从源码本地构建并加载 dist/**
   - 在 `extension/` 目录下运行：
@@ -128,15 +132,22 @@ VITE_ENV=production
 
 ### 3.2 在 Chrome 中安装正式版扩展
 
-无论你是从 `/judge` 页面直接下载 CRX，还是从源码本地构建，都可以按以下步骤安装：
+无论你是从 `/judge` 页面下载 dist ZIP，还是从源码本地构建，都可以按以下步骤安装：
 
 1. 在 Chrome 地址栏打开 `chrome://extensions/`；
 2. 打开右上角 **Developer mode（开发者模式）**；
 3. 安装方式：
-   - 如果你有 `lexilens-formal.crx` 文件：直接将该文件拖拽到扩展页面中，
-     按提示完成安装；
-   - 如果你只有解压后的 `dist/` 目录：点击 **“Load unpacked（加载已解压的扩展程序）”**，
-     并选择根目录下的 `dist/` 文件夹。
+   - 如果你拿到的是 `lexilens-formal-dist.zip`：
+     - 先在本地解压该 ZIP；
+     - 确认解压后的目录中包含 `manifest.json`（通常为 `dist/` 目录）；
+     - 在扩展页面点击 **“Load unpacked（加载已解压的扩展程序）”**，
+       并选择该目录；
+   - 如果你已经有一个构建好的 `dist/` 目录：
+     - 同样使用 **“Load unpacked（加载已解压的扩展程序）”** 选择该目录即可。
+
+> 如需实验 CRX 安装流程，可以参考 `scripts/package-formal-crx.sh` 的用法，
+> 但部分 Chrome 版本会因安全策略出现 `CRX_REQUIRED_PROOF_MISSING` 报错，
+> 因此本次 Hackathon 不推荐以 CRX 作为主安装方式。
 
 安装成功后，你应该能在工具栏和/或侧边栏入口列表中看到 LexiLens 图标。
 
@@ -175,15 +186,16 @@ VITE_ENV=production
    - 优先使用团队提供的 Render 云端 URL；
    - 或者按上文在本地启动 `backend/`。
 2. **获取正式版扩展**
-   - 推荐：在落地页 `/judge` 输入评委口令，直接下载 `lexilens-formal.crx`；
+   - 推荐：在落地页 `/judge` 输入评委口令，直接下载 `lexilens-formal-dist.zip`（dist 压缩包）；  
    - 或者：确保 `extension/.env.formal` 已配置好，运行
-     `bash scripts/package-formal-crx.sh` 或 `pnpm build:formal`，
-     从 `artifacts/formal/` 或根目录 `dist/` 中获得扩展。
+     `bash scripts/package-formal-zip.sh` 或 `pnpm build:formal`，
+     分别从 `artifacts/formal/` 中获得 ZIP，或在根目录得到 `dist/` 目录。
 3. **在 Chrome 中加载扩展**
    - 打开 `chrome://extensions`；
    - 打开「开发者模式」；
-   - 有 CRX 时，将 `lexilens-formal.crx` 拖拽到页面完成安装；
-   - 仅有 `dist/` 目录时，使用「Load unpacked」选择根目录 `dist/`。
+   - 如果你拿到的是 ZIP，先在本地解压，确认其中包含 `dist/` 或其他包含
+     `manifest.json` 的目录；
+   - 使用「Load unpacked」选择该目录完成安装。
 4. **跟随新手引导完成首轮体验**
    - 打开任意英文网页，选中一个单词，唤起 LexiLens；
    - 阅读并完成「欢迎使用 LexiLens」引导面板中的步骤。
