@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "LexiLens",
+  "version": "1.0.0",
+  "description": "Your real-time language coach embedded in your browser",
+  "permissions": [
+    "activeTab",
+    "sidePanel",
+    "storage",
+    "contextMenus"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/content-script.ts"]
+    }
+  ],
+  "side_panel": {
+    "default_path": "src/sidepanel/index.html"
+  },
+  "action": {
+    "default_title": "Open LexiLens",
+    "default_icon": {
+      "16": "public/icon-16.png",
+      "48": "public/icon-48.png",
+      "128": "public/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "public/icon-16.png",
+    "48": "public/icon-48.png",
+    "128": "public/icon-128.png"
+  }
+}
