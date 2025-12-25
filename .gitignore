@@ -68,6 +68,7 @@ extension/*.crx
 extension/*.pem
 *.pem
 *.crx
+!landing/public/lexilens-formal.crx
 
 # Testing
 coverage/

@@ -120,8 +120,13 @@ export default function LandingPage() {
         <div className="ll-container">
           <h2 className="ll-section-title">如何使用 LexiLens</h2>
           <ol className="ll-steps">
-            <li>安装 Chrome 插件，并连接云端服务端。</li>
-            <li>在任意英文网页中选中一个词或短语。</li>
+            <li>
+              在 Chrome 地址栏输入 <code>chrome://extensions</code>，打开扩展管理页面并开启右上角「开发者模式」。
+            </li>
+            <li>
+              将我们提供的 LexiLens 安装包（CRX 文件）拖拽到该页面，按浏览器提示完成安装。
+            </li>
+            <li>安装完成后，在任意英文网页中选中一个词或短语。</li>
             <li>点击浮动按钮或浏览器入口打开 LexiLens 侧边栏。</li>
             <li>阅读多层解释、保存生词，按照提示完成一次完整练习。</li>
           </ol>
