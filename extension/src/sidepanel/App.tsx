@@ -19,6 +19,8 @@ import { useUserProfile, getCefrForPrompt } from './hooks/useUserProfile';
 import { useInterests } from './hooks/useInterests';
 import EnglishLevelDialog from '../components/EnglishLevelDialog';
 import ProfilePage from './ProfilePage';
+import OnboardingPanel from './OnboardingPanel';
+import { useOnboarding } from './hooks/useOnboarding';
 import { API_URL } from '../shared/constants';
 import type { AnalysisRequest, InterestLink, InterestTopic } from '../shared/types';
 
@@ -49,13 +51,17 @@ function App() {
   const { profile, updateProfile } = useUserProfile();
   const interests = useInterests();
   const { topics, blockedTitles, addOrUpdateFromServer } = interests;
+  const onboarding = useOnboarding();
+  const { shouldShowOnboarding, markCompleted } = onboarding;
 
   const favoriteWords = wordbook.entries
     .filter((entry) => entry.isFavorite)
     .map((entry) => entry.word)
     .filter((word) => typeof word === 'string' && word.trim().length > 0);
 
-  const [view, setView] = useState<'coach' | 'profile' | 'saved-entry'>('coach');
+  const [view, setView] = useState<'coach' | 'profile' | 'saved-entry' | 'onboarding'>(
+    'coach',
+  );
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [isLevelDialogOpen, setIsLevelDialogOpen] = useState(false);
   const [isCommonMistakesLoading, setIsCommonMistakesLoading] = useState(false);
@@ -66,6 +72,15 @@ function App() {
   const [, setLexicalMapTextError] = useState<string | null>(null);
 
   const lastSelectionRef = useRef<AnalysisRequest | null>(null);
+
+  const [hasAutoOpenedOnboarding, setHasAutoOpenedOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (!hasAutoOpenedOnboarding && shouldShowOnboarding) {
+      setView('onboarding');
+      setHasAutoOpenedOnboarding(true);
+    }
+  }, [hasAutoOpenedOnboarding, shouldShowOnboarding]);
 
   const updateInterestsFromUsage = useCallback(
     (request: AnalysisRequest) => {
@@ -538,7 +553,25 @@ function App() {
 
   let mainContent: ReactNode;
 
-  if (view === 'profile') {
+  if (view === 'onboarding') {
+    mainContent = (
+      <div className="flex-1 overflow-y-auto">
+        <OnboardingPanel
+          onComplete={() => {
+            markCompleted();
+            setView('coach');
+          }}
+          onSkip={() => {
+            // Skipping for now still marks onboarding as completed so it
+            // does not auto-open again; users can always re-open it via
+            // the Help / Guide button in the header.
+            markCompleted();
+            setView('coach');
+          }}
+        />
+      </div>
+    );
+  } else if (view === 'profile') {
     mainContent = (
       <div className="flex-1 overflow-y-auto">
         <ProfilePage
@@ -777,6 +810,7 @@ function App() {
             onToggleTheme={toggleTheme}
             onOpenProfile={() => setView('profile')}
             onLevelClick={() => setIsLevelDialogOpen(true)}
+            onOpenGuide={() => setView('onboarding')}
           />
         </div>
 

@@ -39,8 +39,11 @@ pnpm-debug.log*
 # Build outputs
 dist/
 dist-ssr/
+.next/
+landing/.next/
 *.local
 *.zip
+artifacts/
 
 # IDE
 .vscode/

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DEMO_INTERESTS, STORAGE_KEYS } from '../../shared/constants';
+import { IS_DEMO_MODE } from '../../shared/env';
 import type { InterestLink, InterestTopic } from '../../shared/types';
 
 export interface UseInterestsResult {
@@ -90,7 +91,9 @@ function sanitizeTopics(input: unknown): InterestTopic[] {
 }
 
 export function useInterests(): UseInterestsResult {
-  const [topics, setTopics] = useState<InterestTopic[]>([]);
+  const [topics, setTopics] = useState<InterestTopic[]>(() =>
+    IS_DEMO_MODE ? DEMO_INTERESTS : [],
+  );
   const [blockedTitles, setBlockedTitles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -109,9 +112,16 @@ export function useInterests(): UseInterestsResult {
               )
             : [];
 
-          // Seed demo interests only on first install:
+          // Seed demo interests only on first install for Demo builds:
           // when there is no stored value for INTERESTS yet.
           if (typeof storedRaw === 'undefined') {
+            if (!IS_DEMO_MODE) {
+              setTopics([]);
+              setBlockedTitles(blocked);
+              setLoading(false);
+              return;
+            }
+
             setTopics(DEMO_INTERESTS);
             setBlockedTitles(blocked);
             chrome.storage?.local.set({
@@ -128,8 +138,13 @@ export function useInterests(): UseInterestsResult {
         },
       );
     } catch {
-      // If storage is unavailable, fall back to demo interests for this session.
-      setTopics(DEMO_INTERESTS);
+      // If storage is unavailable, fall back to demo interests only for
+      // Demo builds; Formal builds use an empty interest list.
+      if (IS_DEMO_MODE) {
+        setTopics(DEMO_INTERESTS);
+      } else {
+        setTopics([]);
+      }
       setLoading(false);
     }
   }, []);

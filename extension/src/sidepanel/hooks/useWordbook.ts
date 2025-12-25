@@ -5,6 +5,7 @@ import {
   MAX_WORDBOOK_ENTRIES,
   STORAGE_KEYS,
 } from '../../shared/constants';
+import { IS_DEMO_MODE } from '../../shared/env';
 import type {
   AnalysisRequest,
   AnalysisResult,
@@ -323,6 +324,12 @@ export function useWordbook(): UseWordbookResult {
         const storedEntries = sanitizeEntries(storedRaw);
 
         if (!storedEntries.length) {
+          if (!IS_DEMO_MODE) {
+            setEntries([]);
+            setLoading(false);
+            return;
+          }
+
           setEntries(DEMO_WORDBOOK);
           persistEntries(DEMO_WORDBOOK);
           setLoading(false);
@@ -333,8 +340,13 @@ export function useWordbook(): UseWordbookResult {
         setLoading(false);
       });
     } catch {
-      // If storage is unavailable, keep demo entries in-memory.
-      setEntries(DEMO_WORDBOOK);
+      // If storage is unavailable, keep demo entries in-memory only for
+      // Demo builds; Formal builds start from an empty wordbook.
+      if (IS_DEMO_MODE) {
+        setEntries(DEMO_WORDBOOK);
+      } else {
+        setEntries([]);
+      }
       setLoading(false);
     }
   }, []);

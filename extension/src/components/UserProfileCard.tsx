@@ -1,4 +1,4 @@
-import { Moon, Sun, User } from 'lucide-react';
+import { HelpCircle, Moon, Sun, User } from 'lucide-react';
 import { getLevelConfig } from '../sidepanel/hooks/useUserProfile';
 import type { UserProfile } from '../sidepanel/hooks/useUserProfile';
 import type { Theme } from '../sidepanel/hooks/useTheme';
@@ -10,6 +10,7 @@ interface UserProfileCardProps {
   onToggleTheme?: () => void;
   onOpenProfile?: () => void;
   onLevelClick?: () => void;
+  onOpenGuide?: () => void;
 }
 
 export default function UserProfileCard({
@@ -19,6 +20,7 @@ export default function UserProfileCard({
   onToggleTheme,
   onOpenProfile,
   onLevelClick,
+  onOpenGuide,
 }: UserProfileCardProps) {
   const initial =
     (profile.nickname && profile.nickname.trim().charAt(0).toUpperCase()) || 'L';
@@ -71,6 +73,18 @@ export default function UserProfileCard({
       </div>
 
       <div className="flex items-center gap-1.5 flex-shrink-0">
+        {onOpenGuide && (
+          <button
+            type="button"
+            onClick={onOpenGuide}
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label="查看使用引导"
+            title="使用引导"
+          >
+            <HelpCircle className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+          </button>
+        )}
+
         {onOpenProfile && (
           <button
             type="button"

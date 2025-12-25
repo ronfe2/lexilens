@@ -1,6 +1,11 @@
 import type { InterestTopic, WordbookEntry } from './types';
+import { getApiUrl } from './env';
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const API_URL = getApiUrl();
+
+// Default build mode; the env helper in `env.ts` is the single source of truth
+// for normalizing `VITE_APP_MODE`, but this constant is useful for docs/tests.
+export const APP_MODE_DEFAULT = 'demo';
 
 export const STORAGE_KEYS = {
   LEARNING_HISTORY: 'lexilens_learning_history',
@@ -9,6 +14,7 @@ export const STORAGE_KEYS = {
   INTERESTS: 'lexilens_interests',
   INTERESTS_BLOCKLIST: 'lexilens_interests_blocklist',
   WORDBOOK: 'lexilens_wordbook',
+  ONBOARDING: 'lexilens_onboarding',
 } as const;
 
 export const MAX_WORDBOOK_ENTRIES = 500;

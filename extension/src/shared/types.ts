@@ -116,6 +116,13 @@ export interface WordbookEntry {
   snapshots?: WordbookSnapshot[];
 }
 
+export interface OnboardingState {
+  completed: boolean;
+  completedAt?: number;
+  // Optional: which version of the onboarding flow was completed.
+  version?: number;
+}
+
 export type MessageType =
   | 'WORD_SELECTED'
   | 'OPEN_SIDEPANEL'
