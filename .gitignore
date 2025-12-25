@@ -64,8 +64,10 @@ logs/
 
 # Chrome Extension
 extension/dist/
-extension/.crx
-extension/.pem
+extension/*.crx
+extension/*.pem
+*.pem
+*.crx
 
 # Testing
 coverage/

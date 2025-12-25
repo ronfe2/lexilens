@@ -219,3 +219,16 @@ TAL AI HACKATHON 参赛作品
 成员：李想、姬弘飞（外部）
 
 3. 需要整理一个 logo 的替换方案和说明
+
+### [x] Step: Formal CRX Packaging & Judge Download
+
+1. 增加正式版扩展打包脚本 `scripts/package-formal-crx.sh`，基于 `pnpm build:formal` 输出的根目录 `dist/` 生成 `artifacts/formal/lexilens-formal.crx`，并保存对应私钥 `lexilens-formal.pem` 用于保持扩展 ID 稳定。
+2. 更新根目录 `.gitignore`，忽略 `*.crx` / `*.pem` 等打包产物，避免误提交。
+3. 调整文档：
+   - 在 `docs/DEPLOYMENT.md` 中说明使用 `scripts/package-formal-crx.sh` 生成 CRX，并将其公网地址配置到落地页的 `FORMAL_PACKAGE_URL`；
+   - 在 `docs/README.formal.md` 中将评委推荐路径改为通过 `/judge` 下载 CRX，并补充 CRX 安装说明，同时保留从 `dist/` 加载解压扩展的备选方案；
+   - 在 `docs/MATERIALS.md` 中将评委入口的素材说明从 ZIP 下载改为 CRX 下载。
+4. 更新落地页评委入口 `landing/app/judge/page.tsx`，将下载提示与步骤改为：
+   - 验证口令后展示「正式版 Chrome 扩展（CRX）下载链接」；
+   - 提示在 `chrome://extensions` 开启开发者模式后拖拽 CRX 安装扩展；
+   - 引导评委按照 README / `docs/DEPLOYMENT.md` 部署后端并完成体验脚本。

@@ -12,13 +12,22 @@ TAL AI HACKATHON 参赛作品
 - 以**干净的数据状态**启动 —— 不包含任何预制的学习历史、词本或兴趣标签；
 - 首次使用时自动弹出 **新手引导 Onboarding**，帮助用户快速上手。
 
-如果你是评委，通常会从落地页 `/judge` 入口下载一个 ZIP 压缩包开始体验。
+如果你是评委，推荐从落地页 `/judge` 入口：
+
+- 输入主办方提供的访问口令；
+- 直接下载 **Chrome 扩展 CRX 安装包**，并在 `chrome://extensions` 中完成安装；
+- 按照本说明文档和落地页上的指引，连接到云端后端并完成一次完整体验。
 
 ---
 
-## 1. 正式版压缩包包含什么？
+## 1. 正式版评审包包含什么？
 
-从评委入口下载并解压正式版 ZIP 后，你会看到：
+在 Hackathon 提交材料中，我们会同时提供：
+
+- **在线评审入口**：落地页 `/judge`，用于下载正式版扩展的 CRX 安装包；
+- **源码压缩包（可选）**：包含 `backend/`、`extension/`、`docs/` 等目录，方便评委或技术同学本地查看与运行。
+
+如果你拿到的是源码 ZIP 包，解压后会看到：
 
 - `backend/` —— FastAPI 后端（与 Demo 使用同一份代码，但面向云端部署）；
 - `extension/` —— Chrome 扩展源码与构建脚本；
@@ -26,7 +35,7 @@ TAL AI HACKATHON 参赛作品
 
 你可以选择：
 
-- **直接使用团队已部署好的 Render 后端**（推荐评委使用）；或
+- 直接使用团队已部署好的 Render 云端后端（推荐评委使用）；或
 - 按照 `docs/DEPLOYMENT.md` 中的说明，自行部署 / 运行一份后端实例。
 
 ---
@@ -89,27 +98,47 @@ VITE_APP_MODE=production
 VITE_ENV=production
 ```
 
-随后（首次运行时）安装依赖并构建正式版扩展：
+随后你可以按两种方式获取正式版扩展：
 
-```bash
-pnpm install
-pnpm build:formal
-```
+- **方式 A（推荐给评委）：直接使用 CRX 安装包**
+  - 在仓库根目录运行：
 
-构建完成后，扩展会被输出到项目根目录下的 **`dist/`** 文件夹  
-（与 Demo 构建共享同一个输出目录）。
+    ```bash
+    bash scripts/package-formal-crx.sh
+    ```
 
-> 如果你下载的正式版 ZIP 中已经包含根目录 `dist/` 目录，
-> 可以直接跳过构建步骤，在 Chrome 中加载该目录即可。
+  - 在 `artifacts/formal/lexilens-formal.crx` 得到正式版 CRX 文件；
+  - 将该文件上传到对象存储或文件分享服务，并将其公网地址配置为
+    落地页的 `FORMAL_PACKAGE_URL`，供评委从 `/judge` 页面直接下载。
 
-### 3.2 在 Chrome 中加载正式版扩展
+- **方式 B：从源码本地构建并加载 dist/**
+  - 在 `extension/` 目录下运行：
+
+    ```bash
+    pnpm install
+    pnpm build:formal
+    ```
+
+  - 构建完成后，扩展会被输出到项目根目录下的 **`dist/`** 文件夹  
+    （与 Demo 构建共享同一个输出目录）。
+
+> 如果你下载的正式版源码 ZIP 中已经包含根目录 `dist/` 目录，
+> 并且该目录是基于正确的 `.env.formal` 构建出来的，
+> 可以直接跳过本地构建步骤。
+
+### 3.2 在 Chrome 中安装正式版扩展
+
+无论你是从 `/judge` 页面直接下载 CRX，还是从源码本地构建，都可以按以下步骤安装：
 
 1. 在 Chrome 地址栏打开 `chrome://extensions/`；
 2. 打开右上角 **Developer mode（开发者模式）**；
-3. 点击 **“Load unpacked（加载已解压的扩展程序）”**；
-4. 选择根目录下的 `dist/` 文件夹（由 `pnpm build:formal` 生成或打包提供）。
+3. 安装方式：
+   - 如果你有 `lexilens-formal.crx` 文件：直接将该文件拖拽到扩展页面中，
+     按提示完成安装；
+   - 如果你只有解压后的 `dist/` 目录：点击 **“Load unpacked（加载已解压的扩展程序）”**，
+     并选择根目录下的 `dist/` 文件夹。
 
-加载成功后，你应该能在工具栏和/或侧边栏入口列表中看到 LexiLens 图标。
+安装成功后，你应该能在工具栏和/或侧边栏入口列表中看到 LexiLens 图标。
 
 ---
 
@@ -145,11 +174,16 @@ pnpm build:formal
 1. **准备后端**
    - 优先使用团队提供的 Render 云端 URL；
    - 或者按上文在本地启动 `backend/`。
-2. **配置并构建正式版扩展**
-   - 确保 `extension/.env.formal` 中的 `VITE_API_URL` 指向你的后端；
-   - 在 `extension/` 目录运行 `pnpm build:formal`（或直接复用压缩包中预构建的 `dist/`）。
+2. **获取正式版扩展**
+   - 推荐：在落地页 `/judge` 输入评委口令，直接下载 `lexilens-formal.crx`；
+   - 或者：确保 `extension/.env.formal` 已配置好，运行
+     `bash scripts/package-formal-crx.sh` 或 `pnpm build:formal`，
+     从 `artifacts/formal/` 或根目录 `dist/` 中获得扩展。
 3. **在 Chrome 中加载扩展**
-   - 打开 `chrome://extensions` → 「Load unpacked」→ 选择根目录 `dist/`。
+   - 打开 `chrome://extensions`；
+   - 打开「开发者模式」；
+   - 有 CRX 时，将 `lexilens-formal.crx` 拖拽到页面完成安装；
+   - 仅有 `dist/` 目录时，使用「Load unpacked」选择根目录 `dist/`。
 4. **跟随新手引导完成首轮体验**
    - 打开任意英文网页，选中一个单词，唤起 LexiLens；
    - 阅读并完成「欢迎使用 LexiLens」引导面板中的步骤。
@@ -159,4 +193,3 @@ pnpm build:formal
    - 对比 Demo 版中带有预制历史的体验，感受正式版从干净状态逐步构建「你的词汇网络」的过程。
 
 这一流程既保持了部署/安装的轻量，也尽可能贴近真实用户的长期使用体验，便于评审正式版的产品价值。
-

@@ -73,11 +73,11 @@
 - `Formal package download panel` —— 评委专用下载面板  
   - 位置：访问口令验证通过后显示的 `ll-judge-panel` 区域；  
   - 素材：输入正确口令后出现的评委专用区域截图，需包含：
-    - 正式版安装包下载链接（由 `FORMAL_PACKAGE_URL` 提供）；  
+    - 正式版 Chrome 扩展 CRX 下载链接（由 `FORMAL_PACKAGE_URL` 提供）；  
     - 简要的安装步骤文字说明。
 
 - `Configuration note` —— 配置提示（纯文字）  
-  - 无需图片；只需在部署前确认 `FORMAL_PACKAGE_URL` 已配置为最终 ZIP 下载地址。
+  - 无需图片；只需在部署前确认 `FORMAL_PACKAGE_URL` 已配置为最终 CRX 下载地址。
 
 ---
 
@@ -147,4 +147,3 @@ Logo），建议按照以下方案管理与替换 Logo 资源：
 > 提示：Logo 文件的最终格式建议使用 PNG（带透明背景）或 SVG。  
 > 在替换前后，可通过 Demo 包和线上落地页快速自查，确认所有入口（浏览器扩展、落地页、
 > 文档截图占位）中的品牌呈现保持一致。
-

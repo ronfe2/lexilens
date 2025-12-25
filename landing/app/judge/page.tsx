@@ -67,7 +67,8 @@ export default function JudgePage() {
         <div className="ll-container ll-judge">
           <h1 className="ll-section-title">好未来 Hackathon 评委入口</h1>
           <p className="ll-section-intro">
-            这里提供 LexiLens 正式版评审包的下载与安装说明。请使用主办方提供的访问口令进入。
+            这里提供 LexiLens 正式版评审包的下载与安装说明。请使用主办方提供的访问口令进入，
+            验证通过后可直接下载 Chrome 扩展 CRX 安装包。
           </p>
 
           <form className="ll-form ll-form-judge" onSubmit={handleSubmit}>
@@ -106,7 +107,7 @@ export default function JudgePage() {
 
               {downloadUrl ? (
                 <p className="ll-judge-download">
-                  正式版打包下载链接：
+                  正式版 Chrome 扩展（CRX）下载链接：
                   <a href={downloadUrl} target="_blank" rel="noreferrer">
                     点击下载
                   </a>
@@ -120,9 +121,13 @@ export default function JudgePage() {
               )}
 
               <ol className="ll-steps">
-                <li>下载并解压正式版安装包。</li>
-                <li>按照 README 中的步骤部署后端（Render 或本地）。</li>
-                <li>在 Chrome 中加载正式版扩展，并确认已连接云端服务。</li>
+                <li>下载正式版 Chrome 扩展 CRX 文件（例如：lexilens-formal.crx）。</li>
+                <li>
+                  在 Chrome 打开 <code>chrome://extensions</code>，开启「开发者模式」，将 CRX
+                  文件拖拽到页面完成安装。
+                </li>
+                <li>按照 README / docs/DEPLOYMENT.md 中的步骤部署后端（Render 或本地）。</li>
+                <li>在 Chrome 中打开任意英文页面，确认扩展已连接云端服务并可以正常查词。</li>
                 <li>
                   进入任意英文页面，按照「评委体验脚本」完成一次完整的阅读 + 词汇学习流程。
                 </li>
@@ -138,4 +143,3 @@ export default function JudgePage() {
     </main>
   );
 }
-
